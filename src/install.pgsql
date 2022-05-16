@@ -288,3 +288,33 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- Setup steps for kapi_tree
+-- Example:
+-- SELECT kapi_tree_setup('trees');
+DROP FUNCTION IF EXISTS kapi_tree_setup;
+CREATE OR REPLACE FUNCTION kapi_tree_setup(ctxName text)
+RETURNS VOID
+AS
+$$
+BEGIN 
+	EXECUTE 'SELECT kapi_tree_struct_new('''|| ctxName ||''');';
+	EXECUTE 'SELECT kapi_tree_mvw_new('''|| ctxName ||''');';
+END;
+$$
+LANGUAGE plpgsql;
+
+-- Rollback Setup steps for kapi_tree
+-- Example:
+-- SELECT kapi_tree_setup_rollback('trees');
+DROP FUNCTION IF EXISTS kapi_tree_setup_rollback;
+CREATE OR REPLACE FUNCTION kapi_tree_setup_rollback(ctxName text)
+RETURNS VOID
+AS
+$$
+BEGIN 
+	EXECUTE 'SELECT kapi_tree_mvw_delete('''|| ctxName ||''');';
+	EXECUTE 'SELECT kapi_tree_struct_delete('''|| ctxName ||''');';
+END;
+$$
+LANGUAGE plpgsql;

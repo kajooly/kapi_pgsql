@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+DROP FUNCTION IF EXISTS kapi_tree_setup_rollback;
+DROP FUNCTION IF EXISTS kapi_tree_setup;
 DROP FUNCTION IF EXISTS kapi_tree_mvw_delete;
 DROP FUNCTION IF EXISTS kapi_tree_mvw_new;
 DROP FUNCTION IF EXISTS kapi_tree_struct_delete;

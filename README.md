@@ -1,6 +1,42 @@
 # kapi_tree_pgsql
 
-## LICENSE
+## Setup
+
+Copy & Paste code to your migrations or execute into your PostgreSQL database
+
+### Install 
+
+~~~
+/src/install.pgsql
+~~~
+
+
+#### install rollback 
+
+
+~~~
+/src/install.rollback.pgsql
+~~~
+
+### INIT Context
+______
+
+Define your context(db schema) location, recommended to sufix with '_tree'
+
+iex: categories_tree
+
+~~~pgsql
+SELECT kapi_tree_setup('categories_tree');
+~~~
+
+####  rollback 
+~~~pgsql
+SELECT kapi_tree_setup_rollback('categories_tree');
+~~~
+
+=======================================
+
+## Licensing 
 
 Copyright 2022 Rolando Lucio 
 
