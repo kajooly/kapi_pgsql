@@ -246,6 +246,28 @@ BEGIN
 	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_owner_id, tree_node_id);';
 	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_owner_id, tree_node_parent_id);';
 	
+	
+	EXECUTE '
+	CREATE OR REPLACE FUNCTION ' || ctxName || '.tree_mvw_refresh()
+	RETURNS trigger 
+	AS 
+	$t$ 
+	BEGIN
+	  REFRESH MATERIALIZED VIEW ' || ctxName || '.tree;
+	  RETURN NULL;
+	END;
+	$t$ LANGUAGE plpgsql;
+	';
+		
+	EXECUTE	'
+	DROP TRIGGER IF EXISTS tree_refresh_mvw_trg ON ' || ctxName || '.tree_nodes;
+	CREATE TRIGGER tree_refresh_mvw_trg
+	AFTER INSERT OR UPDATE OR DELETE
+	ON ' || ctxName || '.tree_nodes
+	FOR EACH STATEMENT
+	EXECUTE PROCEDURE ' || ctxName || '.tree_mvw_refresh();
+	';
+	
 END;
 $$
 LANGUAGE plpgsql;
@@ -261,6 +283,7 @@ AS
 $$
 BEGIN 
 	EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS '|| ctxName ||'.tree ;';
+	EXECUTE 'DROP TRIGGER IF EXISTS tree_refresh_mvw_trg ON ' || ctxName || '.tree_nodes;';
     EXECUTE 'DROP FUNCTION IF EXISTS ' || ctxName || '.tree_mvw_refresh();';
 END;
 $$
