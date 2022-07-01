@@ -1,5 +1,7 @@
 # kapi_tree_pgsql
 
+ elixir build.exs
+
 ## Setup
 
 Copy & Paste code to your migrations or execute into your PostgreSQL database
