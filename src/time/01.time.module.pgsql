@@ -29,8 +29,8 @@ context: Common functions
 -- Epoch in milliseconds to Timestamp in milliseconds
 -- SELECT kapi_time_epoch_to_timestamp( 1656632664923 );  -- Timestamp in milliseconds = '2022-06-30 23:44:24.923'
 
-DROP FUNCTION IF EXISTS kapi_time_epoch_to_timestamp;
-CREATE OR REPLACE FUNCTION kapi_time_epoch_to_timestamp(
+DROP FUNCTION IF EXISTS public.kapi_time_epoch_to_timestamp;
+CREATE OR REPLACE FUNCTION public.kapi_time_epoch_to_timestamp(
         _epoch_milliseconds bigint 
     )
 RETURNS timestamp
@@ -57,8 +57,8 @@ LANGUAGE plpgsql;
 -- Timestamp in milliseconds to Epoch in milliseconds
 -- SELECT kapi_time_timestamp_to_epoch( '2022-06-30 23:44:24.923' );  -- epoch in milliseconds = 1656632664923
 
-DROP FUNCTION IF EXISTS kapi_time_timestamp_to_epoch;
-CREATE OR REPLACE FUNCTION kapi_time_timestamp_to_epoch(
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_to_epoch;
+CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_to_epoch(
         _timestamp timestamp 
     )
 RETURNS bigint

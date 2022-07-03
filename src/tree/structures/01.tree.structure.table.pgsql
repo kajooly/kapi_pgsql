@@ -24,16 +24,16 @@
 -- Creates a new structure table
 -- The tree_nodes table have the following structure:
 -- tree_node_id uuid,                  -- Unique identifier for the node uuid.uuid_generate_v4()
--- tree_node_group uuid,               -- Group identifier for the node, could be used as tenant, 
+-- tree_node_group_id uuid,            -- Group identifier for the node, could be used as tenant, 
                                        -- or similar to group the nodes with duplicate paths when needed.    
--- tree_reference_id uuid,             -- The Foreign key id to reference the data that will be linked to the tree node
+-- tree_node_data_id uuid,             -- The Foreign key id to reference the data that will be linked to the tree node
 -- tree_node_path ltree,               -- The path of the node in the tree
 -- tree_node_metadata jsonb,           -- The metadata of the node
 -- tree_link_metadata jsonb,           -- The metadata of the link related to the predecessor node
 -- tree_node_inserted_at bigint,       -- The epoch time when the node was inserted in milliseconds
 -- tree_node_updated_at bigint         -- The epoch time when the node was updated in milliseconds
 
--- A One To One relation To the data table is enforced by the tree_reference_id
+-- A One To One relation To the data table is enforced by the tree_node_data_id
 -- Is highly recommended to use this table just for tree operations, not for data operations or biz logic
 
 -- @param _schema The schema name
@@ -44,8 +44,8 @@
 -- SELECT kapi_tree_structure_table_new_nodes('categories','brands');
 -- SELECT kapi_tree_structure_table_new_nodes('categories','brands','_mysuffix');
 
-DROP FUNCTION IF EXISTS kapi_tree_structure_table_new_nodes;
-CREATE OR REPLACE FUNCTION kapi_tree_structure_table_new_nodes(
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_table_new_nodes;
+CREATE OR REPLACE FUNCTION public.kapi_tree_structure_table_new_nodes(
     _schema varchar, 
     _table varchar,
     _suffix varchar DEFAULT '_tree_nodes'
@@ -65,8 +65,8 @@ BEGIN
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
         tree_node_id uuid NOT NULL,
-        tree_node_group uuid,
-        tree_reference_id uuid NOT NULL,
+        tree_node_group_id uuid,
+        tree_node_data_id uuid NOT NULL,
         tree_node_path ltree NOT NULL,
         tree_node_metadata jsonb NOT NULL DEFAULT ''{}''::jsonb,
         tree_link_metadata jsonb NOT NULL DEFAULT ''{}''::jsonb,
@@ -74,14 +74,14 @@ BEGIN
         tree_node_updated_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint,
 
         CONSTRAINT _pk PRIMARY KEY (tree_node_id),
-        CONSTRAINT _uk_group_path UNIQUE (tree_node_group, tree_node_path),
-        CONSTRAINT _uk_reference_id UNIQUE (tree_reference_id)
+        CONSTRAINT _uk_group_path UNIQUE (tree_node_group_id, tree_node_path),
+        CONSTRAINT _uk_reference_id UNIQUE (tree_node_data_id)
 
     );        
 	
 	CREATE INDEX IF NOT EXISTS _idx_path  ON ' || _table_name_full || ' USING gist (tree_node_path);
-	CREATE INDEX IF NOT EXISTS _idx_group ON ' || _table_name_full || ' (tree_node_group);
-    CREATE INDEX IF NOT EXISTS _idx_group_path ON ' || _table_name_full || ' USING btree (tree_node_group, tree_node_path);
+	CREATE INDEX IF NOT EXISTS _idx_group ON ' || _table_name_full || ' (tree_node_group_id);
+    CREATE INDEX IF NOT EXISTS _idx_group_path ON ' || _table_name_full || ' USING btree (tree_node_group_id, tree_node_path);
     CREATE INDEX IF NOT EXISTS _idx_inserted_at ON ' || _table_name_full || ' (tree_node_inserted_at);
     CREATE INDEX IF NOT EXISTS _idx_updated_at ON ' || _table_name_full || ' (tree_node_updated_at);
 	
@@ -90,26 +90,16 @@ END;
 $$
 LANGUAGE plpgsql;
 
-
--- @function kapi_tree_structure_table_drop_nodes
+-- @function kapi_tree_structure_table_new_data
 -- @description
--- Drops a structure table
--- @param _schema_table The schema and table name
--- @return drop the table 
--- @usage
--- SELECT kapi_tree_structure_table_drop_nodes('categories.brands');
-
-DROP FUNCTION IF EXISTS kapi_tree_structure_table_drop_nodes;
-CREATE OR REPLACE FUNCTION kapi_tree_structure_table_drop_nodes(
-    _schema_table varchar
-    )
-RETURNS VOID
-AS
-$$
-BEGIN
-    EXECUTE '
-    DROP TABLE IF EXISTS ' || _schema_table || ';
-    ';
-END;
-$$
-LANGUAGE plpgsql;
+-- Creates a new default data table ( basic data table to be linked to the tree structure table )
+-- The tree_data table have the following structure:
+-- id uuid,                         -- Unique identifier for the data uuid.uuid_generate_v4()
+                                    -- will be used as the tree_node_data_id One on One relation
+-- group_id uuid,                   -- Group identifier for the data, could be used as tenant, 
+                                    -- or similar to group_id the data with duplicate paths when needed.
+                                    -- should be the same as the tree_node_group_id
+-- metadata jsonb,                  -- The metadata ( biz logic sense)
+-- data jsonb,                      -- Extra data beside de fields  
+-- inserted_at bigint,              -- The epoch time when the data was inserted in milliseconds
+-- updated_at bigint                -- The epoch time when the data was updated in milliseconds                                   

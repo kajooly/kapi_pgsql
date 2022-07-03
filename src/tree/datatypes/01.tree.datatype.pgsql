@@ -17,8 +17,8 @@
  **/
 
 -- Structure to me use as return valeu for the materialized view operations
-DROP TYPE IF EXISTS kapi_tree;
-CREATE TYPE kapi_tree AS(
+DROP TYPE IF EXISTS public.kapi_tree;
+CREATE TYPE public.kapi_tree AS(
     tree_reference_id uuid,
     tree_node_path ltree,
     tree_node_parent_path ltree,

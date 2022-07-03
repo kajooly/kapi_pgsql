@@ -15,11 +15,5 @@
 -- Used to rollback in migrations
 -- @rollback kapi_tree datatypes
 
-DROP TYPE IF EXISTS kapi_tree_table;
-DROP DOMAIN IF EXISTS kapi_json;
-DROP DOMAIN IF EXISTS kapi_ltree;
-DROP DOMAIN IF EXISTS kapi_uuid;
-DROP DOMAIN IF EXISTS kapi_uuid_auto;
-DROP DOMAIN IF EXISTS kapi_epoch;
-DROP TYPE IF EXISTS kapi_tree;
+DROP TYPE IF EXISTS public.kapi_tree;
 
