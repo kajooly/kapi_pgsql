@@ -24,6 +24,8 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS ltree;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
  -------------------- 
  -- src/time/01.time.module.pgsql 
@@ -107,7 +109,7 @@ $$
 LANGUAGE plpgsql;
 
  -------------------- 
- -- src/install.pgsql 
+ -- src/tree/datatypes/01.tree.datatype.pgsql 
  -------------------- 
 
 -- Copyright 2022 Rolando Lucio 
@@ -124,19 +126,14 @@ LANGUAGE plpgsql;
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-
-/**
- * 
- * Basic Kapi Elements 
- * 
+/*
+ * kapi_tree datatypes
  **/
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS citext;
-CREATE EXTENSION IF NOT EXISTS ltree;
-	
+
+-- Structure to me use as return valeu for the materialized view operations
 DROP TYPE IF EXISTS kapi_tree;
 CREATE TYPE kapi_tree AS(
-    tree_owner_id uuid,
+    tree_reference_id uuid,
     tree_node_path ltree,
     tree_node_parent_path ltree,
     tree_node_key ltree,
@@ -148,165 +145,135 @@ CREATE TYPE kapi_tree AS(
     tree_node_parent_id uuid,
     tree_node_metadata jsonb,
     tree_link_metadata jsonb,
-    tree_node_inserted_at timestamp,
-    tree_node_updated_at timestamp
+    tree_node_inserted_at bigint,
+    tree_node_updated_at bigint
 );
 
-DROP DOMAIN IF EXISTS kapi_timestamp;
-CREATE DOMAIN kapi_timestamp timestamp(0) without time zone NOT NULL DEFAULT now();
+-- Default Datatypes to bes used the kapi_tree_table_datatype
 
+-- Date & time in Epoch milliseconds (milliseconds since the Unix epoch)
+DROP DOMAIN IF EXISTS kapi_epoch;
+CREATE DOMAIN kapi_epoch bigint ((date_part('epoch'::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint;
+
+-- Automaticly generated UUID
 DROP DOMAIN IF EXISTS kapi_uuid_auto;
 CREATE DOMAIN kapi_uuid_auto uuid NOT NULL DEFAULT uuid_generate_v4();
 
+-- Not nullable UUID
 DROP DOMAIN IF EXISTS kapi_uuid;
 CREATE DOMAIN kapi_uuid uuid NOT NULL;
 
+-- Ltree type
 DROP DOMAIN IF EXISTS kapi_ltree;
 CREATE DOMAIN kapi_ltree ltree NOT NULL;
 
+-- default jsonb replica
 DROP DOMAIN IF EXISTS kapi_json;
 CREATE DOMAIN kapi_json jsonb NOT NULL DEFAULT '{}'::jsonb;
 
-DROP TYPE IF EXISTS kapi_tree_table;
-CREATE TYPE kapi_tree_table AS(
+-- Simple structure to use as table type to be used in the creation of new trees
+-- using custom types and domains to setup default values
+DROP TYPE IF EXISTS kapi_tree_table_datatype;
+CREATE TYPE kapi_tree_table_datatype AS(
     tree_node_id kapi_uuid_auto,
     tree_node_path kapi_ltree,
-    tree_owner_id kapi_uuid,
+    tree_reference_id kapi_uuid,
     tree_node_metadata kapi_json,
     tree_link_metadata kapi_json,
-    tree_node_inserted_at kapi_timestamp,
-    tree_node_updated_at kapi_timestamp
+    tree_node_inserted_at kapi_epoch,
+    tree_node_updated_at kapi_epoch
 );
 
-/**
- * 
- * Kapi API functions
- * 
+ -------------------- 
+ -- src/tree/structures/01.tree.structure.table.pgsql 
+ -------------------- 
+
+-- Copyright 2022 Rolando Lucio 
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--     https://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+/*
+ * kapi_tree structures table functions
+ * Functions for basic tree structures
+ * context: Tree Structure Table
  **/
 
 
--- This function returns a list of all the nodes in the tree.
--- in a kapi_tree type structure for a given 
--- treeSource Location of type kapi_tree_table.
+-- @function kapi_tree_structure_table_new_nodes
+-- @description 
+-- Creates a new structure table
+-- The tree_nodes table have the following structure:
+-- tree_node_id uuid,                  -- Unique identifier for the node uuid.uuid_generate_v4()
+-- tree_node_group uuid,               -- Group identifier for the node, could be used as tenant, 
+                                       -- or similar to group the nodes with duplicate paths when needed.    
+-- tree_reference_id uuid,             -- The Foreign key id to reference the data that will be linked to the tree node
+-- tree_node_path ltree,               -- The path of the node in the tree
+-- tree_node_metadata jsonb,           -- The metadata of the node
+-- tree_link_metadata jsonb,           -- The metadata of the link related to the predecessor node
+-- tree_node_inserted_at bigint,       -- The epoch time when the node was inserted in milliseconds
+-- tree_node_updated_at bigint         -- The epoch time when the node was updated in milliseconds
 
--- Example:
--- SELECT * FROM kapi_tree_get('forest.tree_nodes');
+-- A One To One relation To the data table is enforced by the tree_reference_id
+-- Is highly recommended to use this table just for tree operations, not for data operations or biz logic
 
-DROP FUNCTION IF EXISTS kapi_tree_get;
-CREATE OR REPLACE FUNCTION kapi_tree_get(treeSource text) 
-RETURNS SETOF kapi_tree
-AS
-$$
-BEGIN
-    RETURN QUERY EXECUTE '
-    WITH
-    tree_source AS (
-       SELECT * FROM ' || treeSource || ' 
-    ),
-    tree_base AS(
-        SELECT
-        this_node.tree_owner_id
-        ,this_node.tree_node_path
-        ,subltree(this_node.tree_node_path,0,nlevel(this_node.tree_node_path) -1 ) AS tree_node_parent_path
-        ,subpath(this_node.tree_node_path, -1 ) AS tree_node_key
-        ,nlevel(this_node.tree_node_path)::bigint AS tree_node_level
-        ,
-        (
-            SELECT  
-            count(*)
-            FROM tree_source descendants
-            WHERE 
-            descendants.tree_node_path <@ this_node.tree_node_path 
-            AND descendants.tree_node_path != this_node.tree_node_path
-            AND descendants.tree_owner_id = this_node.tree_owner_id
-        )::bigint  AS tree_node_descendants
-        ,this_node.tree_node_id
-        ,parent_node.tree_node_id AS tree_node_parent_id
-        ,this_node.tree_node_metadata
-        ,this_node.tree_link_metadata
-        ,this_node.tree_node_inserted_at
-        ,this_node.tree_node_updated_at
-        FROM tree_source this_node
-        LEFT JOIN tree_source parent_node 
-        ON (this_node.tree_owner_id = parent_node.tree_owner_id) 
-        AND parent_node.tree_node_path = subltree(this_node.tree_node_path,0,nlevel(this_node.tree_node_path) -1 )
-        ORDER BY (this_node.tree_owner_id, this_node.tree_node_path)
-    ),
-    tree_structure AS (
-        SELECT 
-        (
-            CASE WHEN tree_node_level = 1 THEN
-                ''root''
-            ELSE
-                CASE WHEN tree_node_descendants = 0 THEN
-                    ''leaf''
-                ELSE
-                    ''node''
-                END
-            END
-        ) AS tree_node_type
-        ,
-        (
-            CASE WHEN tree_node_level = 1 THEN
-                ''root''
-            ELSE
-                CASE WHEN tree_node_parent_id IS NULL THEN
-                    ''unlinked''
-                ELSE
-                    ''linked''
-                END
-            END
-        ) AS tree_link_state
-        ,* 
-        FROM tree_base
-    )
-    SELECT 
-    tree_owner_id::uuid
-    ,tree_node_path::ltree
-    ,tree_node_parent_path::ltree
-    ,tree_node_key::ltree
-    ,tree_node_type::citext
-    ,tree_link_state::citext
-    ,tree_node_level::bigint
-    ,tree_node_descendants::bigint
-    ,tree_node_id::uuid
-    ,tree_node_parent_id::uuid
-    ,tree_node_metadata::jsonb
-    ,tree_link_metadata::jsonb
-    ,tree_node_inserted_at::timestamp
-    ,tree_node_updated_at::timestamp
-    FROM tree_structure;
-	';
+-- @param _schema The schema name
+-- @param _table The table name
+-- @param _suffix The suffix to add to the table name default _tree_nodes
+-- @return create a new table in the schema and will sufix _tree_nodes [_schema].[_table][suffix]
+-- @usage
+-- SELECT kapi_tree_structure_table_new_nodes('categories','brands');
+-- SELECT kapi_tree_structure_table_new_nodes('categories','brands','_mysuffix');
 
-END;
-$$
-LANGUAGE plpgsql;
-
-
--- This function creates a new schema and a kapi_tree table
--- at ctxName with table name tree_nodes
-
--- Example:
--- SELECT kapi_tree_struct_new('trees');
-DROP FUNCTION IF EXISTS kapi_tree_struct_new;
-CREATE OR REPLACE FUNCTION public.kapi_tree_struct_new(ctxName text) 
+DROP FUNCTION IF EXISTS kapi_tree_structure_table_new_nodes;
+CREATE OR REPLACE FUNCTION kapi_tree_structure_table_new_nodes(
+    _schema varchar, 
+    _table varchar,
+    _suffix varchar DEFAULT '_tree_nodes'
+    ) 
 RETURNS VOID
 AS
 $$
+DECLARE
+    _table_name varchar default  _table || _suffix;
+    _table_name_full varchar default _schema || '.' || _table || _suffix;
 BEGIN
+    -- Verify that the schema exists in the database
 	EXECUTE '
-	CREATE SCHEMA IF NOT EXISTS ' || ctxName || ';
+	CREATE SCHEMA IF NOT EXISTS ' || _schema || ';
     ';
 	
 	EXECUTE '
-	CREATE TABLE IF NOT EXISTS ' || ctxName || '.tree_nodes OF kapi_tree_table (
-	PRIMARY KEY (tree_node_id)
-	);
+	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
+        tree_node_id uuid NOT NULL,
+        tree_node_group uuid,
+        tree_reference_id uuid NOT NULL,
+        tree_node_path ltree NOT NULL,
+        tree_node_metadata jsonb NOT NULL DEFAULT ''{}''::jsonb,
+        tree_link_metadata jsonb NOT NULL DEFAULT ''{}''::jsonb,
+        tree_node_inserted_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint,
+        tree_node_updated_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint,
+
+        CONSTRAINT _pk PRIMARY KEY (tree_node_id),
+        CONSTRAINT _uk_group_path UNIQUE (tree_node_group, tree_node_path),
+        CONSTRAINT _uk_reference_id UNIQUE (tree_reference_id)
+
+    );        
 	
-	ALTER TABLE ' || ctxName || '.tree_nodes 
-	ADD CONSTRAINT uk_owner_path UNIQUE (tree_owner_id, tree_node_path);
-	CREATE INDEX idx_tree  ON ' || ctxName || '.tree_nodes USING gist (tree_node_path);
-	CREATE INDEX idx_owner ON ' || ctxName || '.tree_nodes (tree_owner_id);
+	CREATE INDEX IF NOT EXISTS _idx_path  ON ' || _table_name_full || ' USING gist (tree_node_path);
+	CREATE INDEX IF NOT EXISTS _idx_group ON ' || _table_name_full || ' (tree_node_group);
+    CREATE INDEX IF NOT EXISTS _idx_group_path ON ' || _table_name_full || ' USING btree (tree_node_group, tree_node_path);
+    CREATE INDEX IF NOT EXISTS _idx_inserted_at ON ' || _table_name_full || ' (tree_node_inserted_at);
+    CREATE INDEX IF NOT EXISTS _idx_updated_at ON ' || _table_name_full || ' (tree_node_updated_at);
 	
 	';
 END;
@@ -314,119 +281,25 @@ $$
 LANGUAGE plpgsql;
 
 
+-- @function kapi_tree_structure_table_drop_nodes
+-- @description
+-- Drops a structure table
+-- @param _schema_table The schema and table name
+-- @return drop the table 
+-- @usage
+-- SELECT kapi_tree_structure_table_drop_nodes('categories.brands_tree_nodes');
 
--- this function Delete the structure of the tree
-
--- Example:
--- SELECT kapi_tree_struct_delete('trees');
-DROP FUNCTION IF EXISTS kapi_tree_struct_delete;
-CREATE OR REPLACE FUNCTION kapi_tree_struct_delete(ctxName text) 
+DROP FUNCTION IF EXISTS kapi_tree_structure_table_drop_nodes;
+CREATE OR REPLACE FUNCTION kapi_tree_structure_table_drop_nodes(
+    _schema_table varchar
+    )
 RETURNS VOID
 AS
 $$
 BEGIN
-	EXECUTE '
-	DROP TABLE IF EXISTS ' || ctxName || '.tree_nodes;
-	';
-	
-	EXECUTE '
-	DROP SCHEMA IF EXISTS ' || ctxName || ';
-	';
-	
-END;
-$$
-LANGUAGE plpgsql;
-
--- Create a MATERIALIZED where to hit the queries
-
--- Example:
--- SELECT kapi_tree_mvw_new('trees');
-DROP FUNCTION IF EXISTS kapi_tree_mvw_new;
-CREATE OR REPLACE FUNCTION kapi_tree_mvw_new(ctxName text)
-RETURNS VOID
-AS
-$$
-BEGIN 
-	EXECUTE 'CREATE MATERIALIZED VIEW IF NOT EXISTS ' || ctxName || '.tree AS 
-	SELECT * FROM kapi_tree_get(''' || ctxName || '.tree_nodes'');';
-	
-	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_owner_id);';
-	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree USING gist (tree_node_path);';
-	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_node_id);';
-	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_node_parent_id);';
-	EXECUTE 'CREATE UNIQUE INDEX ON '|| ctxName ||'.tree (tree_owner_id, tree_node_path);';
-	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_owner_id, tree_node_id);';
-	EXECUTE 'CREATE INDEX ON '|| ctxName ||'.tree (tree_owner_id, tree_node_parent_id);';
-	
-	
-	EXECUTE '
-	CREATE OR REPLACE FUNCTION ' || ctxName || '.tree_mvw_refresh()
-	RETURNS trigger 
-	AS 
-	$t$ 
-	BEGIN
-	  REFRESH MATERIALIZED VIEW ' || ctxName || '.tree;
-	  RETURN NULL;
-	END;
-	$t$ LANGUAGE plpgsql;
-	';
-		
-	EXECUTE	'
-	DROP TRIGGER IF EXISTS tree_refresh_mvw_trg ON ' || ctxName || '.tree_nodes;
-	CREATE TRIGGER tree_refresh_mvw_trg
-	AFTER INSERT OR UPDATE OR DELETE
-	ON ' || ctxName || '.tree_nodes
-	FOR EACH STATEMENT
-	EXECUTE PROCEDURE ' || ctxName || '.tree_mvw_refresh();
-	';
-	
-END;
-$$
-LANGUAGE plpgsql;
-
--- Delete the MATERIALIZED tree view
-
--- Example:
--- SELECT kapi_tree_mvw_delete('trees');
-DROP FUNCTION IF EXISTS kapi_tree_mvw_delete;
-CREATE OR REPLACE FUNCTION kapi_tree_mvw_delete(ctxName text)
-RETURNS VOID
-AS
-$$
-BEGIN 
-	EXECUTE 'DROP MATERIALIZED VIEW IF EXISTS '|| ctxName ||'.tree ;';
-	EXECUTE 'DROP TRIGGER IF EXISTS tree_refresh_mvw_trg ON ' || ctxName || '.tree_nodes;';
-    EXECUTE 'DROP FUNCTION IF EXISTS ' || ctxName || '.tree_mvw_refresh();';
-END;
-$$
-LANGUAGE plpgsql;
-
--- Setup steps for kapi_tree
--- Example:
--- SELECT kapi_tree_setup('trees');
-DROP FUNCTION IF EXISTS kapi_tree_setup;
-CREATE OR REPLACE FUNCTION kapi_tree_setup(ctxName text)
-RETURNS VOID
-AS
-$$
-BEGIN 
-	EXECUTE 'SELECT kapi_tree_struct_new('''|| ctxName ||''');';
-	EXECUTE 'SELECT kapi_tree_mvw_new('''|| ctxName ||''');';
-END;
-$$
-LANGUAGE plpgsql;
-
--- Rollback Setup steps for kapi_tree
--- Example:
--- SELECT kapi_tree_setup_rollback('trees');
-DROP FUNCTION IF EXISTS kapi_tree_setup_rollback;
-CREATE OR REPLACE FUNCTION kapi_tree_setup_rollback(ctxName text)
-RETURNS VOID
-AS
-$$
-BEGIN 
-	EXECUTE 'SELECT kapi_tree_mvw_delete('''|| ctxName ||''');';
-	EXECUTE 'SELECT kapi_tree_struct_delete('''|| ctxName ||''');';
+    EXECUTE '
+    DROP TABLE IF EXISTS ' || _schema_table || ';
+    ';
 END;
 $$
 LANGUAGE plpgsql;

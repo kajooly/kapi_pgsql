@@ -12,26 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-/*
- * kapi_tree datatypes
- **/
+-- Used to rollback in migrations
 
--- Structure to me use as return valeu for the materialized view operations
-DROP TYPE IF EXISTS kapi_tree;
-CREATE TYPE kapi_tree AS(
-    tree_reference_id uuid,
-    tree_node_path ltree,
-    tree_node_parent_path ltree,
-    tree_node_key ltree,
-    tree_node_type citext,
-    tree_link_state citext,
-    tree_node_level bigint,
-    tree_node_descendants bigint,
-    tree_node_id uuid,
-    tree_node_parent_id uuid,
-    tree_node_metadata jsonb,
-    tree_link_metadata jsonb,
-    tree_node_inserted_at bigint,
-    tree_node_updated_at bigint
-);
-
+DROP FUNCTION IF EXISTS kapi_tree_structure_table_drop_nodes;
+DROP FUNCTION IF EXISTS kapi_tree_structure_table_new_nodes;
