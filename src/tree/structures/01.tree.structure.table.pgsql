@@ -156,19 +156,34 @@ LANGUAGE plpgsql;
 -- inserted_at bigint,          -- The epoch time when the node was inserted in milliseconds
 -- updated_at bigint            -- The epoch time when the node was updated in milliseconds
 
+-- @TODO: Add support for One to One relationship via DEFERRABLE and Transaction commits 
+-- When our common DSL(Ecto) and ORM supports it
+-- ALTER TABLE nodes
+--         ADD FOREIGN KEY (id) REFERENCES data(id)
+--                 DEFERRABLE INITIALLY DEFERRED;
+-- ALTER TABLE data
+--         ADD FOREIGN KEY (id) REFERENCES nodes(id)
+--                 DEFERRABLE INITIALLY DEFERRED;
+-- BEGIN transaction;
+-- INSERT INTO nodes VALUES (1, ...);
+-- INSERT INTO data VALUES (1, ....);
+-- COMMIT;
+
 -- @param _schema The schema name
 -- @param _table The table name
 -- @param _suffix The suffix to add to the table name default _tree_nodes
 -- @return create a new table in the schema and will sufix _tree_nodes [_schema].[_table][suffix]
 -- @usage
--- SELECT kapi_tree_structure_new_data('categories','brands');
+-- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands', 'citext','MATCH SIMPLE ON DELETE RESTRICT ON UPDATE CASCADE');
+-- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands', 'numeric');
+-- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands');
 DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_data;
 CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_data(
     _nodes_table varchar,
     _schema varchar, 
     _table varchar,
-    _value_declaration varchar DEFAULT 'text'
-    _reference_declaration varchar DEFAULT 'MATCH SIMPLE ON DELETE CASCADE ON UPDATE CASCADE',
+    _value_declaration varchar DEFAULT 'text',
+    _reference_declaration varchar DEFAULT 'MATCH SIMPLE ON DELETE CASCADE ON UPDATE CASCADE'
     ) 
 RETURNS VOID
 AS
