@@ -78,10 +78,10 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id uuid NOT NULL DEFAULT uuid_generate_v4(),
+        id kapi_dt_uuid_auto,
         CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),
 
-        node_group_id uuid NOT NULL DEFAULT ''00000000-0000-0000-0000-000000000000'',
+        node_group_id kapi_dt_uuid_default,
 
         -- REQUIRED -- 
         -- uniques one per level per group
@@ -97,17 +97,15 @@ BEGIN
         node_name ltree GENERATED ALWAYS AS (subpath(node_path, -1 )) STORED,
 		node_depth bigint GENERATED ALWAYS AS (nlevel(node_path)::bigint) STORED,
 
-        node_link_metadata jsonb NOT NULL DEFAULT ''{"behaviour": "link.simple"}''::jsonb,
-        node_link_data jsonb NOT NULL DEFAULT ''{ }''::jsonb,
-        node_metadata jsonb NOT NULL DEFAULT ''{"behaviour": "hierarchy.down"}''::jsonb,
-        node_data jsonb NOT NULL DEFAULT ''{ }''::jsonb,
+        node_link_metadata kapi_dt_json_default,
+        node_link_data kapi_dt_json_default,
+        node_metadata kapi_dt_json_default,
+        node_data kapi_dt_json_default,
  
 	    node_weight integer NOT NULL DEFAULT 0,
 	
-        node_inserted_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint,
-        CONSTRAINT _chk_len_node_inserted_at_' || _table_name || ' CHECK (LENGTH(node_inserted_at::text) = 13),
-        node_updated_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint,
-        CONSTRAINT _chk_len_node_updated_at_' || _table_name || ' CHECK (LENGTH(node_updated_at::text) = 13),
+        node_inserted_at kapi_dt_epoch_auto,
+        node_updated_at kapi_dt_epoch_auto,
 
         
         CONSTRAINT _uk_group_node_path_' || _table_name || ' UNIQUE (node_group_id, node_path),
@@ -200,10 +198,10 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id uuid NOT NULL DEFAULT uuid_generate_v4(),
+        id kapi_dt_uuid_auto,
         CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),           
 		
-        node_id uuid NOT NULL,
+        node_id kapi_dt_uuid,
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (node_id), 
         CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
 
@@ -218,10 +216,8 @@ BEGIN
         details text,
 		CONSTRAINT _chk_nullornotempty_details_' || _table_name || ' CHECK ((LENGTH(TRIM(details)) > 0) OR details IS NULL),
 	
-        inserted_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint,
-        CONSTRAINT _chk_len_inserted_at_' || _table_name || ' CHECK (LENGTH(inserted_at::text) = 13),
-        updated_at bigint NOT NULL DEFAULT ((date_part(''epoch''::text, CURRENT_TIMESTAMP) * (1000)::double precision))::bigint
-        CONSTRAINT _chk_len_updated_at_' || _table_name || ' CHECK (LENGTH(updated_at::text) = 13)
+        inserted_at kapi_dt_epoch_auto,
+        updated_at kapi_dt_epoch_auto
 
     );
     CREATE INDEX IF NOT EXISTS _idx_value_' || _table_name || ' ON ' || _table_name_full || ' (value);           

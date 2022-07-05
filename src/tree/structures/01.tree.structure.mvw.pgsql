@@ -17,9 +17,9 @@
  * Functions for basic tree visualizations
  * context: Tree Structure Materialized View
  **/
-
-DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_mvw;
-CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_mvw(
+-- SELECT kapi_tree_structure_new_tree('categories.brands_nodes', 'categories','brands')
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_tree;
+CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_tree(
     _source varchar,
     _schema varchar, 
     _table varchar,
@@ -45,17 +45,14 @@ BEGIN
         ),
         tree_base AS(
             SELECT
-            this_node.id
-            ,this_node.group_id
+            this_node.id 
+            ,this_node.node_group_id
             ,this_node.node_path
-            ,this_node.node_metadata
-                
             ,this_node.node_key
-            ,this_node.value
-            ,this_node.weight
             ,this_node.node_alias
-            ,this_node.note
-            ,this_node.details
+                   
+            ,this_node.node_weight
+            ,this_node.node_metadata
             ,this_node.node_data
             
             ,parent_node.id AS node_parent_id
@@ -75,16 +72,16 @@ BEGIN
             ,this_node.node_link_metadata
             ,this_node.node_link_data
                     
-            ,this_node.inserted_at
-            ,public.kapi_time_epoch_to_timestamp(this_node.inserted_at) AS inserted_at_ts
-            ,this_node.updated_at
-            ,public.kapi_time_epoch_to_timestamp(this_node.updated_at) AS updated_at_ts
+            ,this_node.node_inserted_at
+            ,public.kapi_time_epoch_to_timestamp(this_node.node_inserted_at) AS node_inserted_at_ts
+            ,this_node.node_updated_at
+            ,public.kapi_time_epoch_to_timestamp(this_node.node_updated_at) AS node_updated_at_ts
             
             FROM tree_source this_node
             LEFT JOIN tree_source parent_node 
-            ON (this_node.group_id = parent_node.group_id) 
+            ON (this_node.node_group_id = parent_node.node_group_id) 
             AND parent_node.node_path = this_node.node_path_to
-            ORDER BY (this_node.group_id, this_node.node_path)
+            ORDER BY (this_node.node_group_id, this_node.node_path)
         ),
         tree_structure AS (
             SELECT 
@@ -116,20 +113,16 @@ BEGIN
         )
         SELECT 
         id::uuid
-        ,group_id::uuid
-        
+        ,node_group_id::uuid
+        ,node_path::ltree
+        ,node_key::citext
+        ,node_alias::citext
 
-        ,key::citext
-        ,value::text
-        ,weight::integer
-        ,alias::citext
-        ,note::text
-        ,details::text
-        
+        ,node_weight::integer      
         ,node_metadata::jsonb
         ,node_data::jsonb
         
-        ,node_path::ltree
+        
         ,node_parent_id::uuid
         ,node_path_to::ltree 
         ,node_name::ltree
@@ -141,10 +134,10 @@ BEGIN
         ,node_link_metadata::jsonb
         ,node_link_data::jsonb
         
-        ,inserted_at::bigint
-        ,inserted_at_ts::timestamp
-        ,updated_at::bigint
-        ,updated_at_ts::timestamp
+        ,node_inserted_at::bigint
+        ,node_inserted_at_ts::timestamp
+        ,node_updated_at::bigint
+        ,node_updated_at_ts::timestamp
         FROM tree_structure
     ;
     ';
