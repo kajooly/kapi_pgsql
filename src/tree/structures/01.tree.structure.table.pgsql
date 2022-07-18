@@ -78,15 +78,15 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dt_uuid_auto,
+        id kapi_dtd_uuid_auto,
         CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),
 
-        node_group_id kapi_dt_uuid_default,
+        node_group_id kapi_dtd_uuid_default,
 
         -- REQUIRED -- 
         -- uniques one per level per group
         node_path ltree NOT NULL,
-        node_key citext NOT NULL,
+        node_key kapi_dtd_citext,
         CONSTRAINT _chk_trim_node_key_' || _table_name || ' CHECK (LENGTH(TRIM(node_key)) = LENGTH(node_key)),
         
         node_alias citext NOT NULL,
@@ -97,15 +97,15 @@ BEGIN
         node_name ltree GENERATED ALWAYS AS (subpath(node_path, -1 )) STORED,
 		node_depth bigint GENERATED ALWAYS AS (nlevel(node_path)::bigint) STORED,
 
-        node_link_metadata kapi_dt_json_default,
-        node_link_data kapi_dt_json_default,
-        node_metadata kapi_dt_json_default,
-        node_data kapi_dt_json_default,
+        node_link_metadata kapi_dtd_json_default,
+        node_link_data kapi_dtd_json_default,
+        node_metadata kapi_dtd_json_default,
+        node_data kapi_dtd_json_default,
  
 	    node_weight integer NOT NULL DEFAULT 0,
 	
-        node_inserted_at kapi_dt_epoch_auto,
-        node_updated_at kapi_dt_epoch_auto,
+        node_inserted_at kapi_dtd_epoch_auto,
+        node_updated_at kapi_dtd_epoch_auto,
 
         
         CONSTRAINT _uk_group_node_path_' || _table_name || ' UNIQUE (node_group_id, node_path),
@@ -198,10 +198,10 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dt_uuid_auto,
+        id kapi_dtd_uuid_auto,
         CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),           
 		
-        node_id kapi_dt_uuid,
+        node_id kapi_dtd_uuid,
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (node_id), 
         CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
 
@@ -216,8 +216,8 @@ BEGIN
         details text,
 		CONSTRAINT _chk_nullornotempty_details_' || _table_name || ' CHECK ((LENGTH(TRIM(details)) > 0) OR details IS NULL),
 	
-        inserted_at kapi_dt_epoch_auto,
-        updated_at kapi_dt_epoch_auto
+        inserted_at kapi_dtd_epoch_auto,
+        updated_at kapi_dtd_epoch_auto
 
     );
     CREATE INDEX IF NOT EXISTS _idx_value_' || _table_name || ' ON ' || _table_name_full || ' (value);           
