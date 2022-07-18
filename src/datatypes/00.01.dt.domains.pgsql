@@ -18,27 +18,27 @@
 -- Base epoch in milliseconds since the UNIX epoch.
 ---------------------------------------------------------------
 
-DROP DOMAIN IF EXISTS public.kapi_dtc_epoch;
-CREATE DOMAIN public.kapi_dtc_epoch bigint 
+DROP DOMAIN IF EXISTS public.kapi_dtd_epoch;
+CREATE DOMAIN public.kapi_dtd_epoch bigint 
 NOT NULL 
 CHECK (char_length(VALUE::text) = 13)
 ;
 
-DROP DOMAIN IF EXISTS public.kapi_dtc_epoch_auto;
-CREATE DOMAIN public.kapi_dtc_epoch_auto bigint 
+DROP DOMAIN IF EXISTS public.kapi_dtd_epoch_auto;
+CREATE DOMAIN public.kapi_dtd_epoch_auto bigint 
 NOT NULL 
 DEFAULT ((date_part('epoch'::text, CURRENT_TIMESTAMP AT TIME ZONE 'UTC') * (1000)::double precision))::bigint
 CHECK (char_length(VALUE::text) = 13)
 ;
 
-DROP DOMAIN IF EXISTS public.kapi_dtc_epoch_seconds;
-CREATE DOMAIN public.kapi_dtc_epoch_seconds bigint 
+DROP DOMAIN IF EXISTS public.kapi_dtd_epoch_seconds;
+CREATE DOMAIN public.kapi_dtd_epoch_seconds bigint 
 NOT NULL 
 CHECK (char_length(VALUE::text) = 10)
 ;
 
-DROP DOMAIN IF EXISTS public.kapi_dtc_epoch_seconds_auto;
-CREATE DOMAIN public.kapi_dtc_epoch_seconds_auto bigint 
+DROP DOMAIN IF EXISTS public.kapi_dtd_epoch_seconds_auto;
+CREATE DOMAIN public.kapi_dtd_epoch_seconds_auto bigint 
 NOT NULL 
 DEFAULT ((date_part('epoch'::text, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')))::bigint
 CHECK (char_length(VALUE::text) = 10)
@@ -105,3 +105,32 @@ CREATE DOMAIN public.kapi_dtd_json_default jsonb NOT NULL DEFAULT '{}'::jsonb;
 ---------------------------------------------------------------
 DROP DOMAIN IF EXISTS public.kapi_dtd_ltree;
 CREATE DOMAIN public.kapi_dtd_ltree ltree NOT NULL;
+
+---------------------------------------------------------------
+-- citext
+---------------------------------------------------------------
+DROP DOMAIN IF EXISTS public.kapi_dtd_citext;
+CREATE DOMAIN public.kapi_dtd_citext citext NOT NULL;
+
+DROP DOMAIN IF EXISTS public.kapi_dtd_citext_default;
+CREATE DOMAIN public.kapi_dtd_citext citext 
+NOT NULL
+DEFAULT 'undefined'::citext
+;
+
+-- 'a a'  OK
+-- '             a a          '  Error
+DROP DOMAIN IF EXISTS public.kapi_dtd_citext_notempty;
+CREATE DOMAIN public.kapi_dtd_citext citext
+NOT NULL
+CHECK (LENGTH(TRIM(VALUE)) = LENGTH(VALUE))
+;
+
+-- 'a a'  OK
+-- '             a a           '  OK
+DROP DOMAIN IF EXISTS public.kapi_dtd_citext_nullnotempty;
+CREATE DOMAIN public.kapi_dtd_citext citext
+NOT NULL
+CHECK ((LENGTH(TRIM(note)) > 0) OR note IS NULL)
+;
+
