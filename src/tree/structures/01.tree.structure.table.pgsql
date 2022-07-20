@@ -178,7 +178,7 @@ LANGUAGE plpgsql;
 -- @param _suffix The suffix to add to the table name default _tree_nodes
 -- @return create a new table in the schema and will sufix _tree_nodes [_schema].[_table][suffix]
 -- @usage
--- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands', 'citext','MATCH SIMPLE ON DELETE RESTRICT ON UPDATE CASCADE');
+-- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands', 'citext NOT NULL','MATCH SIMPLE ON DELETE RESTRICT ON UPDATE CASCADE');
 -- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands', 'numeric');
 -- SELECT kapi_tree_structure_new_data('categories.brands_nodes','categories','brands');
 DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_data;
