@@ -13,8 +13,7 @@
 -- limitations under the License.
 
 
--- @rollback kapi_time
--- Used to rollback in migrations
-
-DROP FUNCTION IF EXISTS kapi_time_epoch_to_timestamp;
-DROP FUNCTION IF EXISTS kapi_time_timestamp_to_epoch;
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_seconds;
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_milliseconds;
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_naive;
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp;

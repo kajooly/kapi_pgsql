@@ -12,7 +12,5 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
--- kapi required extensions 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS citext;
-CREATE EXTENSION IF NOT EXISTS ltree;
+DROP FUNCTION IF EXISTS public.kapi_time_epoch_to_timestamp;
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_to_epoch;

@@ -12,14 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
--- Used to rollback in migrations
--- @rollback kapi_tree datatypes
-
-DROP TYPE IF EXISTS kapi_tree_table;
-DROP DOMAIN IF EXISTS kapi_json;
-DROP DOMAIN IF EXISTS kapi_ltree;
-DROP DOMAIN IF EXISTS kapi_uuid;
-DROP DOMAIN IF EXISTS kapi_uuid_auto;
-DROP DOMAIN IF EXISTS kapi_epoch;
-DROP TYPE IF EXISTS kapi_tree;
-
+CREATE TABLE categories.brands_data_deleted (
+	LIKE categories.brands_data, 
+	PRIMARY KEY (id),
+	deleted_at kapi_epoch
+);
