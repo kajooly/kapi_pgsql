@@ -16,9 +16,9 @@
 -- FUNCION: public.kapi_tablefunc_updatedat
 -- DESCRIPTION: This Trigger Function is used to update the date of the last update of the table.
 -- USAGE: 
--- SELECT public.kapi_tablefunc_updatedat('categories','brands','node_updated_at')
--- SELECT public.kapi_tablefunc_updatedat('categories','brands')
-
+-- SELECT public.kapi_tablefunc_updatedat('categories','brands_data','node_updated_at');
+-- SELECT public.kapi_tablefunc_updatedat('categories','brands_data');
+DROP FUNCTION IF EXISTS public.kapi_tablefunc_updatedat;
 CREATE OR REPLACE FUNCTION public.kapi_tablefunc_updatedat(
     _schema varchar, 
     _table varchar,
