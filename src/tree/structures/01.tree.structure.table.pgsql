@@ -143,7 +143,7 @@ LANGUAGE plpgsql;
 -- Is highly recommended to use this table just for data operations or biz logic
 -- and Alter to your needs just link the table to the nodes table
 -- 
--- NOTE:: if you need Unique values per level per group add them to the nodes table
+-- data_:: if you need Unique values per level per group add them to the nodes table
 -- 
 -- The table have the following structure:
 -- id uuid,                     -- Unique identifier for the One to One relationship with nodes
@@ -154,7 +154,7 @@ LANGUAGE plpgsql;
                                 -- iex: Open, Closed, In Progress, etc
 -- value text,                  -- The value of the node                                
 
--- note text,                   -- The note of the node ( might be used to store the concept or title)
+-- data_ text,                   -- The note of the node ( might be used to store the concept or title)
 -- details text,                -- The details of the node ( might be used to store the body or extra info)
 
 -- inserted_at bigint,          -- The epoch time when the node was inserted in milliseconds
@@ -207,21 +207,21 @@ BEGIN
         id kapi_dtd_uuid_auto,
         CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),           
 		
-        node_id kapi_dtd_uuid,
-        CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (node_id), 
-        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
+        data_node_id kapi_dtd_uuid,
+        CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (data_node_id), 
+        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
 
-        value ' || _value_declaration || ',
+        data_value ' || _value_declaration || ',
        	
-		note kapi_dtd_text_null_or_notempty,
-        details kapi_dtd_text_null_or_notempty,
+		data_note kapi_dtd_text_null_or_notempty,
+        data_details kapi_dtd_text_null_or_notempty,
 	
-        inserted_at kapi_dtd_epoch_auto,
-        updated_at kapi_dtd_epoch_auto
+        data_inserted_at kapi_dtd_epoch_auto,
+        data_updated_at kapi_dtd_epoch_auto
     );
-    CREATE INDEX IF NOT EXISTS _idx_value_' || _table_name || ' ON ' || _table_name_full || ' (value);           
-    CREATE INDEX IF NOT EXISTS _idx_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (inserted_at);
-    CREATE INDEX IF NOT EXISTS _idx_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (updated_at);
+    CREATE INDEX IF NOT EXISTS _idx_data_value_' || _table_name || ' ON ' || _table_name_full || ' (data_value);           
+    CREATE INDEX IF NOT EXISTS _idx_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (data_inserted_at);
+    CREATE INDEX IF NOT EXISTS _idx_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (data_updated_at);
 	
 	';
 END;
