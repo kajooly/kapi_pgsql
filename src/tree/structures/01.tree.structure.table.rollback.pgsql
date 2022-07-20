@@ -14,4 +14,5 @@
 
 -- Used to rollback in migrations
 
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_data;
 DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_nodes;
