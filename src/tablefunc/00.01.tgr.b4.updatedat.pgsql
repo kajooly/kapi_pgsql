@@ -22,12 +22,12 @@ DROP FUNCTION IF EXISTS public.kapi_tablefunc_updatedat;
 CREATE OR REPLACE FUNCTION public.kapi_tablefunc_updatedat(
     _schema varchar, 
     _table varchar,
-    _updatedat_column varchar DEFAULT 'updated_at',
+    _updatedat_column varchar DEFAULT 'updated_at'
 )
+RETURNS VOID
 LANGUAGE plpgsql
 VOLATILE
 COST 100
-RETURNS VOID
 AS
 $$
 DECLARE
