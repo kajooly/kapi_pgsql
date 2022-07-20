@@ -98,20 +98,22 @@ BEGIN
         node_path_to ltree GENERATED ALWAYS AS (subltree(node_path,0,nlevel(node_path) -1 )) STORED,
         node_name ltree GENERATED ALWAYS AS (subpath(node_path, -1 )) STORED,
 		node_depth bigint GENERATED ALWAYS AS (nlevel(node_path)::bigint) STORED,
-        -- --------------------------------------------------
-        -- --------------------------------------------------
-
-        node_link_metadata kapi_dtd_json_default,
-        node_link_data kapi_dtd_json_default,
+       
+        -- Base columns ------------------------------------
+        node_weight kapi_dtd_int_default,
         node_metadata kapi_dtd_json_default,
         node_data kapi_dtd_json_default,
- 
-	    node_weight kapi_dtd_int_default,
-	
+
+        node_link_weight kapi_dtd_int_default,
+        node_link_metadata kapi_dtd_json_default,
+        node_link_data kapi_dtd_json_default,
+
+
+        -- Date and time ------------------------------------
         node_inserted_at kapi_dtd_epoch_auto,
         node_updated_at kapi_dtd_epoch_auto,
 
-        
+        -- CONSTRAINTS --------------------------------------
         CONSTRAINT _uk_group_node_path_' || _table_name || ' UNIQUE (node_group_id, node_path),
 		CONSTRAINT _uk_group_parent_node_alias_' || _table_name || ' UNIQUE (node_group_id, node_path_to, node_alias),
 		CONSTRAINT _uk_group_parent_key_' || _table_name || ' UNIQUE (node_group_id, node_path_to, node_key)
@@ -184,7 +186,7 @@ CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_data(
     _nodes_table varchar,
     _schema varchar, 
     _table varchar,
-    _value_declaration varchar DEFAULT 'text',
+    _value_declaration varchar DEFAULT 'kapi_dtd_text_notempty',
     _reference_declaration varchar DEFAULT 'MATCH SIMPLE ON DELETE CASCADE ON UPDATE CASCADE'
     ) 
 RETURNS VOID
@@ -209,23 +211,15 @@ BEGIN
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (node_id), 
         CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
 
-        data_sys_state kapi_dtd_citext_notempty_default,
-        status kapi_dtd_citext_notempty_default,
-
-		value ' || _value_declaration || ',
-		note text,
-        CONSTRAINT _chk_nullornotempty_note_' || _table_name || ' CHECK ((LENGTH(TRIM(note)) > 0) OR note IS NULL),
-        details text,
-		CONSTRAINT _chk_nullornotempty_details_' || _table_name || ' CHECK ((LENGTH(TRIM(details)) > 0) OR details IS NULL),
+        value ' || _value_declaration || ',
+       	
+		note kapi_dtd_text_null_or_notempty,
+        details kapi_dtd_text_null_or_notempty,
 	
         inserted_at kapi_dtd_epoch_auto,
         updated_at kapi_dtd_epoch_auto
-
     );
     CREATE INDEX IF NOT EXISTS _idx_value_' || _table_name || ' ON ' || _table_name_full || ' (value);           
-	CREATE INDEX IF NOT EXISTS _idx_state_' || _table_name || ' ON ' || _table_name_full || ' (state);
-    CREATE INDEX IF NOT EXISTS _idx_status_' || _table_name || ' ON ' || _table_name_full || ' (status);
-    CREATE INDEX IF NOT EXISTS _idx_state_status_' || _table_name || ' ON ' || _table_name_full || ' (state, status);
     CREATE INDEX IF NOT EXISTS _idx_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (inserted_at);
     CREATE INDEX IF NOT EXISTS _idx_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (updated_at);
 	

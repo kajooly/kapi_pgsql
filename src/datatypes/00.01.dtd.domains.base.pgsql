@@ -69,7 +69,7 @@ DROP DOMAIN IF EXISTS public.kapi_dtd_timestamp_seconds_auto;
 CREATE DOMAIN public.kapi_dtd_timestamp_seconds_auto timestamp 
 NOT NULL 
 DEFAULT TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS')::timestamp 
---CHECK (char_length(VALUE::text) = 19)
+-- CHECK (char_length(VALUE::text) = 19)
 ;
 
 DROP DOMAIN IF EXISTS public.kapi_dtd_timestamp_naive_auto;
@@ -89,7 +89,7 @@ DROP DOMAIN IF EXISTS public.kapi_dtd_uuid_auto;
 CREATE DOMAIN public.kapi_dtd_uuid_auto uuid NOT NULL DEFAULT uuid_generate_v4();
 
 DROP DOMAIN IF EXISTS public.kapi_dtd_uuid_default;
-CREATE DOMAIN public.kapi_dtd_default uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+CREATE DOMAIN public.kapi_dtd_uuid_default uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
 
 ---------------------------------------------------------------
 -- jsonb
@@ -113,7 +113,7 @@ DROP DOMAIN IF EXISTS public.kapi_dtd_citext;
 CREATE DOMAIN public.kapi_dtd_citext citext NOT NULL;
 
 DROP DOMAIN IF EXISTS public.kapi_dtd_citext_default;
-CREATE DOMAIN public.kapi_dtd_citext citext 
+CREATE DOMAIN public.kapi_dtd_citext_default citext 
 NOT NULL
 DEFAULT 'undefined'::citext
 ;
@@ -121,16 +121,68 @@ DEFAULT 'undefined'::citext
 -- 'a a'  OK
 -- '             a a          '  Error
 DROP DOMAIN IF EXISTS public.kapi_dtd_citext_notempty;
-CREATE DOMAIN public.kapi_dtd_citext citext
+CREATE DOMAIN public.kapi_dtd_citext_notempty citext
 NOT NULL
 CHECK (LENGTH(TRIM(VALUE)) = LENGTH(VALUE))
 ;
 
 -- 'a a'  OK
--- '             a a           '  OK
-DROP DOMAIN IF EXISTS public.kapi_dtd_citext_nullnotempty;
-CREATE DOMAIN public.kapi_dtd_citext citext
+-- '             a a          '  Error
+DROP DOMAIN IF EXISTS public.kapi_dtd_citext_notempty_default;
+CREATE DOMAIN public.kapi_dtd_citext_notempty_default citext
 NOT NULL
-CHECK ((LENGTH(TRIM(note)) > 0) OR note IS NULL)
+DEFAULT 'undefined'::citext
+CHECK (LENGTH(TRIM(VALUE)) = LENGTH(VALUE))
 ;
 
+-- 'a a'  OK
+-- '             a a           '  OK
+DROP DOMAIN IF EXISTS public.kapi_dtd_citext_null_or_notempty;
+CREATE DOMAIN public.kapi_dtd_citext_null_or_notempty citext
+CHECK ((LENGTH(TRIM(VALUE)) > 0) OR VALUE IS NULL)
+;
+
+---------------------------------------------------------------
+-- integer
+---------------------------------------------------------------
+DROP DOMAIN IF EXISTS public.kapi_dtd_int;
+CREATE DOMAIN public.kapi_dtd_int integer NOT NULL;
+
+DROP DOMAIN IF EXISTS public.kapi_dtd_int_default;
+CREATE DOMAIN public.kapi_dtd_int_default integer NOT NULL DEFAULT 0;
+
+---------------------------------------------------------------
+-- text
+---------------------------------------------------------------
+DROP DOMAIN IF EXISTS public.kapi_dtd_text;
+CREATE DOMAIN public.kapi_dtd_text text NOT NULL;
+
+DROP DOMAIN IF EXISTS public.kapi_dtd_text_default;
+CREATE DOMAIN public.kapi_dtd_text_default text 
+NOT NULL
+DEFAULT 'undefined'::text
+;
+
+-- 'a a'  OK
+-- '             a a          '  Error
+DROP DOMAIN IF EXISTS public.kapi_dtd_text_notempty;
+CREATE DOMAIN public.kapi_dtd_text_notempty text
+NOT NULL
+CHECK (LENGTH(TRIM(VALUE)) = LENGTH(VALUE))
+;
+
+-- 'a a'  OK
+-- '             a a          '  Error
+DROP DOMAIN IF EXISTS public.kapi_dtd_text_notempty_default;
+CREATE DOMAIN public.kapi_dtd_text_notempty_default text
+NOT NULL
+DEFAULT 'undefined'::text
+CHECK (LENGTH(TRIM(VALUE)) = LENGTH(VALUE))
+;
+
+-- 'a a'  OK
+-- '             a a           '  OK
+DROP DOMAIN IF EXISTS public.kapi_dtd_text_null_or_notempty;
+CREATE DOMAIN public.kapi_dtd_text_null_or_notempty text
+CHECK ((LENGTH(TRIM(VALUE)) > 0) OR VALUE IS NULL)
+;
