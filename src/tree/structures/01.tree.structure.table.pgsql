@@ -83,26 +83,30 @@ BEGIN
 
         node_group_id kapi_dtd_uuid_default,
 
-        -- REQUIRED -- 
+        -- REQUIRED ----------------------------------------- 
         -- uniques one per level per group
-        node_path ltree NOT NULL,
-        node_key kapi_dtd_citext,
-        CONSTRAINT _chk_trim_node_key_' || _table_name || ' CHECK (LENGTH(TRIM(node_key)) = LENGTH(node_key)),
-        
-        node_alias citext NOT NULL,
-		CONSTRAINT _chk_trim_alias_' || _table_name || ' CHECK (LENGTH(TRIM(node_alias)) = LENGTH(node_alias)),
         -- --------------------------------------------------
-        
+        node_path kapi_dtd_ltree,
+        node_key kapi_dtd_citext_notempty,
+        node_alias kapi_dtd_citext_notempty,
+        -- --------------------------------------------------
+        -- --------------------------------------------------
+       
+        -- GENERATED ---------------------------------------
+        -- This columns are generated on the fly, cant be updated or inserted
+        -- --------------------------------------------------
         node_path_to ltree GENERATED ALWAYS AS (subltree(node_path,0,nlevel(node_path) -1 )) STORED,
         node_name ltree GENERATED ALWAYS AS (subpath(node_path, -1 )) STORED,
 		node_depth bigint GENERATED ALWAYS AS (nlevel(node_path)::bigint) STORED,
+        -- --------------------------------------------------
+        -- --------------------------------------------------
 
         node_link_metadata kapi_dtd_json_default,
         node_link_data kapi_dtd_json_default,
         node_metadata kapi_dtd_json_default,
         node_data kapi_dtd_json_default,
  
-	    node_weight integer NOT NULL DEFAULT 0,
+	    node_weight kapi_dtd_int_default,
 	
         node_inserted_at kapi_dtd_epoch_auto,
         node_updated_at kapi_dtd_epoch_auto,
@@ -205,10 +209,8 @@ BEGIN
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (node_id), 
         CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
 
-        state citext NOT NULL DEFAULT ''undefined'',
-        CONSTRAINT _chk_trim_state_' || _table_name || ' CHECK (LENGTH(TRIM(state)) = LENGTH(state)),
-        status citext NOT NULL DEFAULT ''undefined'',
-        CONSTRAINT _chk_trim_status_' || _table_name || ' CHECK (LENGTH(TRIM(status)) = LENGTH(status)),
+        data_sys_state kapi_dtd_citext_notempty_default,
+        status kapi_dtd_citext_notempty_default,
 
 		value ' || _value_declaration || ',
 		note text,
