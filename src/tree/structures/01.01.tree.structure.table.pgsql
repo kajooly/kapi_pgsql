@@ -192,7 +192,7 @@ CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_data(
     _nodes_table varchar,
     _schema varchar, 
     _table varchar,
-    _value_declaration varchar DEFAULT 'kapi_dtd_text_notempty',
+    _value_declaration varchar DEFAULT 'kapi_dtd_citext_null_or_notempty',
     _reference_declaration varchar DEFAULT 'MATCH SIMPLE ON DELETE CASCADE ON UPDATE CASCADE'
     ) 
 RETURNS VOID
