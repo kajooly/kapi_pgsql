@@ -22,7 +22,7 @@ DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_tree;
 CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_tree(
     _source varchar,
     _schema varchar, 
-    _table varchar,
+    _table varchar
     ) 
 RETURNS VOID
 AS
@@ -45,7 +45,7 @@ BEGIN
         ),
         tree_base AS(
             SELECT
-            this_node.id 
+            this_node.node_id 
             ,this_node.node_group_id
             ,this_node.node_path
             ,this_node.node_key
@@ -55,7 +55,7 @@ BEGIN
             ,this_node.node_metadata
             ,this_node.node_data
             
-            ,parent_node.id AS node_parent_id
+            ,parent_node.node_id AS node_parent_id
             ,this_node.node_path_to
             ,this_node.node_name
             ,this_node.node_depth
@@ -112,7 +112,7 @@ BEGIN
             FROM tree_base
         )
         SELECT 
-        id::uuid
+        node_id::uuid
         ,node_group_id::uuid
         ,node_path::ltree
         ,node_key::citext

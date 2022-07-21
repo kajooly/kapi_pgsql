@@ -78,15 +78,17 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dtd_uuid_auto,
-        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),
+        node_id kapi_dtd_uuid_auto,
+        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (node_id),
 
         node_group_id kapi_dtd_uuid_default,
 
         -- REQUIRED ----------------------------------------- 
         -- uniques one per level per group
         -- --------------------------------------------------
-        node_path kapi_dtd_ltree,
+        -- TODO: change ltree to kapi when dls resolved
+        -- node_path kapi_dtd_ltree,
+        node_path ltree NOT NULL,
         node_key kapi_dtd_citext_notempty,
         node_alias kapi_dtd_citext_notempty,
         -- --------------------------------------------------
@@ -131,6 +133,10 @@ BEGIN
     CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_path_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias, node_path);
 	
 	';
+
+    EXECUTE '
+	SELECT public.kapi_tablefunc_updatedat(''' || _schema || ''', ''' || _table_name || ''' ,''node_updated_at'');
+    ';
 END;
 $$
 LANGUAGE plpgsql;
@@ -204,12 +210,12 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dtd_uuid_auto,
-        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),           
+        data_id kapi_dtd_uuid_auto,
+        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (data_id),           
 		
         data_node_id kapi_dtd_uuid,
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (data_node_id), 
-        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
+        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (node_id) ' || _reference_declaration || ',
 
         data_value ' || _value_declaration || ',
        	
@@ -222,8 +228,12 @@ BEGIN
     CREATE INDEX IF NOT EXISTS _idx_data_value_' || _table_name || ' ON ' || _table_name_full || ' (data_value);           
     CREATE INDEX IF NOT EXISTS _idx_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (data_inserted_at);
     CREATE INDEX IF NOT EXISTS _idx_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (data_updated_at);
-	
 	';
+
+    EXECUTE '
+	SELECT public.kapi_tablefunc_updatedat(''' || _schema || ''', ''' || _table_name || ''' ,''data_updated_at'');
+    ';
+
 END;
 $$
 LANGUAGE plpgsql;

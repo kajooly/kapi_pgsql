@@ -54,7 +54,7 @@ BEGIN
 	CREATE TRIGGER trg_updatedat
 	BEFORE UPDATE 
 	ON ' || _table_name_full || '
-	FOR EACH STATEMENT
+	FOR EACH ROW
 	EXECUTE PROCEDURE ' || _schema || '.' || _table || '_trg_fn_b4_update_updatedat();
 	';
 END;
