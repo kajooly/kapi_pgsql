@@ -13,23 +13,54 @@
 -- limitations under the License.
 
 
+--------------------------------------------------------------
+
+-- SELECT public.kapi_time_timestamp_now();
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_now;
+CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_now()
+    RETURNS timestamp
+    LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
+AS $BODY$
+    DECLARE
+        _result timestamp;
+    BEGIN
+        _result = TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS.MS')::timestamp;
+        RETURN _result;
+    END;
+$BODY$;
+
+
 ---------------------------------------------------------------
 -- TimeStamp Functions get or format timestamp
 -- ISO 8601 format
 -- Default timestamp in milliseconds & UTC timezone
 -- MAIN FUNCTION: public.kapi_time_timestamp
+-- Refer to timezones: select * from pg_timezone_names;
+-- some examples
+-- SELECT (now()::TIMESTAMP WITH TIME ZONE at time zone 'America/mexico_city')::TIMESTAMP WITH TIME ZONE ;
+-- SELECT now()::timestamp at time zone 'UTC' at time zone 'America/mexico_city';
+-- SELECT timezone('America/mexico_city',now()::timestamptz);
 ---------------------------------------------------------------
 
 -- FUNCTION: public.kapi_time_timestamp_seconds
 -- i.e: 2022-07-05 14:45:08
+-- SELECT public.kapi_time_timestamp_seconds('2022-07-23 11:57:07.115713 America/mexico_city');
+-- SELECT public.kapi_time_timestamp_seconds('2022-07-23 11:41:23.113887+00');
+-- SELECT public.kapi_time_timestamp_seconds('Wed 17 Dec 07:37:16 1997 PST');
+-- SELECT public.kapi_time_timestamp_seconds('2004-10-19 10:23:54+02');
+-- SELECT public.kapi_time_timestamp_seconds('1999-01-08 04:05:06 -8:00');
 -- SELECT public.kapi_time_timestamp_seconds('2022-07-05 14:45:08.471898');
 -- SELECT public.kapi_time_timestamp_seconds();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_seconds;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_seconds(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
@@ -45,15 +76,17 @@ $BODY$;
 -- SELECT public.kapi_time_timestamp_milliseconds();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_milliseconds;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_milliseconds(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
 BEGIN
-    _result = TO_CHAR((_timestamp AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS.MS')::timestamp;
+    _result = TO_CHAR((_timestamp AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS.MS')::timestamp; 
     RETURN _result;
 END;
 $BODY$;
@@ -64,10 +97,12 @@ $BODY$;
 -- SELECT public.kapi_time_timestamp_naive();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_naive;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_naive(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
@@ -83,10 +118,12 @@ $BODY$;
 -- SELECT public.kapi_time_timestamp();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
@@ -95,3 +132,7 @@ BEGIN
     RETURN _result;
 END;
 $BODY$;
+
+---------------------------------------------------------------
+-- End OF TimeStamp FORMAT Functions
+---------------------------------------------------------------

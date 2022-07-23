@@ -21,7 +21,7 @@ CREATE TYPE public.kapi_dt_tree_tree AS(
     -- Node Fields
     node_id uuid,
     node_group_id uuid,
-    node_path kapi_dtd_ltree,
+    node_path ltree,
     node_key citext,
     node_alias citext,
     node_path_to ltree,
@@ -35,7 +35,19 @@ CREATE TYPE public.kapi_dt_tree_tree AS(
     node_link_data jsonb,
     node_inserted_at bigint,
     node_updated_at bigint,
+    -- View Fields
+    -- ...
+    node_inserted_at_ts timestamp,
+    node_updated_at_ts timestamp,
+    node_parent_id uuid,
+    node_descendants bigint,
+    node_type text,
+    node_link_state text,
+    tree_refreshed_at bigint,
+    tree_refreshed_at_ts timestamp
+    
     -- Data Fields
+    /*
     data_id uuid,
     data_node_id uuid,
     data_value text,
@@ -43,6 +55,7 @@ CREATE TYPE public.kapi_dt_tree_tree AS(
     data_details text,
     data_inserted_at bigint,
     data_updated_at bigint
+    */
     -- View Fields
     -- ...
 );
