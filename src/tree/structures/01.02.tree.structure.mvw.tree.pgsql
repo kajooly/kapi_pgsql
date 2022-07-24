@@ -17,7 +17,7 @@
  * Functions for basic tree visualizations
  * context: Tree Structure Materialized View
  **/
--- SELECT kapi_tree_structure_new_tree('categories.brands_nodes', 'categories','brands')
+-- SELECT kapi_tree_structure_new_tree('categories.brands_nodes', 'categories','brands');
 DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_tree;
 CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_tree(
     _source varchar,
@@ -28,7 +28,7 @@ RETURNS VOID
 AS
 $$
 DECLARE
-    _suffix varchar DEFAULT '_tree'
+    _suffix varchar DEFAULT '_tree';
     _table_name varchar default  _table || _suffix;
     _table_name_full varchar default _schema || '.' || _table || _suffix;
 BEGIN
@@ -38,7 +38,7 @@ BEGIN
     ';
 
     EXECUTE '
-    CREATE MATERIALIZED VIEW IF NOT EXISTS' || _table_name_full || ' AS
+    CREATE MATERIALIZED VIEW IF NOT EXISTS ' || _table_name_full || ' AS
         WITH
         tree_source AS (
            SELECT * FROM ' || _source || ' 
@@ -217,6 +217,36 @@ BEGIN
         FROM tree_counts
         ORDER BY node_group_id, node_path ASC
         ;
+    ';
+
+    -- Replicate Node Indices
+    -- + aditional
+    EXECUTE '
+    -- uk idx as pk for node_id
+    CREATE UNIQUE INDEX IF NOT EXISTS _pk_' || _table_name || ' ON ' || _table_name_full || ' (node_id);
+
+    -- UK index for other Unique Keys
+    CREATE UNIQUE INDEX IF NOT EXISTS _uk_group_node_path_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path);
+    CREATE UNIQUE INDEX IF NOT EXISTS _uk_group_parent_node_alias_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path_to, node_alias);
+    CREATE UNIQUE INDEX IF NOT EXISTS _uk_group_parent_key_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path_to, node_key);
+
+    -- Same as node table
+    CREATE INDEX IF NOT EXISTS _idx_path_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path);
+    CREATE INDEX IF NOT EXISTS _idx_path_to_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path_to);
+	CREATE INDEX IF NOT EXISTS _idx_group_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id);
+    CREATE INDEX IF NOT EXISTS _idx_group_path_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path);
+    CREATE INDEX IF NOT EXISTS _idx_node_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (node_inserted_at);
+    CREATE INDEX IF NOT EXISTS _idx_node_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (node_updated_at);
+    CREATE INDEX IF NOT EXISTS _idx_group_node_key_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_key);
+    CREATE INDEX IF NOT EXISTS _idx_group_node_alias_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_alias);
+    CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias);
+    CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_path_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias, node_path);
+
+    -- View indexes
+    CREATE INDEX IF NOT EXISTS _idx_node_updated_at_ts_' || _table_name || ' ON ' || _table_name_full || ' (node_updated_at_ts);
+	CREATE INDEX IF NOT EXISTS _idx_parent_id_' || _table_name || ' ON ' || _table_name_full || ' (node_parent_id);
+    CREATE INDEX IF NOT EXISTS _idx_updated_rn_group_' || _table_name || ' ON ' || _table_name_full || ' (tree_nodes_updated_rn_group);
+
     ';
 
 END;

@@ -19,70 +19,61 @@
 DROP TYPE IF EXISTS public.kapi_dt_tree_tree;
 CREATE TYPE public.kapi_dt_tree_tree AS(
     -- Node Fields
-    node_id uuid,
-    node_group_id uuid,
-    node_path ltree,
-    node_key citext,
-    node_alias citext,
-    node_path_to ltree,
-    node_name ltree,
-    node_depth bigint,
-    node_weight integer,
-    node_metadata jsonb,
-    node_data jsonb,
-    node_link_weight integer,
-    node_link_metadata jsonb,
-    node_link_data jsonb,
-    node_inserted_at bigint,
-    node_updated_at bigint,
-    -- View Fields
-    -- ...
-    node_inserted_at_ts timestamp,
-    node_updated_at_ts timestamp,
-    node_parent_id uuid,
-    node_descendants bigint,
-    node_type text,
-    node_link_state text,
-    tree_refreshed_at bigint,
-    tree_refreshed_at_ts timestamp
-    
-    -- Data Fields
-    /*
-    data_id uuid,
-    data_node_id uuid,
-    data_value text,
-    data_note text,
-    data_details text,
-    data_inserted_at bigint,
-    data_updated_at bigint
-    */
-    -- View Fields
-    -- ...
+    node_id uuid
+    ,node_group_id uuid
+    ,node_path ltree
+    ,node_key citext
+    ,node_alias citext	
+    ,node_path_to ltree 
+    ,node_name ltree
+    ,node_depth bigint
+    ,node_weight integer      
+    ,node_metadata jsonb
+    ,node_data jsonb
+    ,node_link_weight integer      
+    ,node_link_metadata jsonb
+    ,node_link_data jsonb        
+    ,node_inserted_at bigint
+    ,node_updated_at bigint      
+    -- view fields    
+    ,node_inserted_at_ts timestamp
+    ,node_updated_at_ts timestamp
+    ,node_parent_id uuid     
+    ,node_descendants bigint		
+    ,node_type text      
+    ,node_link_state text
+    -- tree gen
+    ,tree_refreshed_at bigint
+    ,tree_refreshed_at_ts timestamp
+    ,tree_nodes_total bigint
+    ,tree_nodes_updated_rn bigint
+    ,tree_nodes_total_group bigint
+    ,tree_nodes_updated_rn_group  bigint 
 );
 
 DROP TYPE IF EXISTS public.kapi_dt_tree_node;
 CREATE TYPE public.kapi_dt_tree_node AS(
-    id uuid,
-    node_group_id uuid,
-    node_path kapi_dtd_ltree,
-    node_key citext,
-    node_alias citext,
-    node_path_to ltree,
-    node_name ltree,
-    node_depth bigint,
-    node_weight integer,
-    node_metadata jsonb,
-    node_data jsonb,
-    node_link_weight integer,
-    node_link_metadata jsonb,
-    node_link_data jsonb,
-    node_inserted_at bigint,
-    node_updated_at bigint
+    node_id uuid
+    ,node_group_id uuid
+    ,node_path ltree
+    ,node_key citext
+    ,node_alias citext	
+    ,node_path_to ltree 
+    ,node_name ltree
+    ,node_depth bigint
+    ,node_weight integer      
+    ,node_metadata jsonb
+    ,node_data jsonb
+    ,node_link_weight integer      
+    ,node_link_metadata jsonb
+    ,node_link_data jsonb        
+    ,node_inserted_at bigint
+    ,node_updated_at bigint 
 );
 
 DROP TYPE IF EXISTS public.kapi_dt_tree_data;
 CREATE TYPE public.kapi_dt_tree_data AS(
-    id uuid,
+    data_id uuid,
     data_node_id uuid,
     data_value text,
     data_note text,
