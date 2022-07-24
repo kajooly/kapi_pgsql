@@ -92,24 +92,24 @@ BEGIN
             SELECT 
             (
                 CASE WHEN node_depth = 1 THEN
-                    'root'
+                    ''root''
                 ELSE
                     CASE WHEN node_descendants = 0 THEN
-                        'leaf'
+                        ''leaf''
                     ELSE
-                        'node'
+                        ''node''
                     END
                 END
             ) AS node_type
             ,
             (
                 CASE WHEN node_depth = 1 THEN
-                    'root'
+                    ''root''
                 ELSE
                     CASE WHEN node_parent_id IS NULL THEN
-                        'unlinked'
+                        ''unlinked''
                     ELSE
-                        'linked'
+                        ''linked''
                     END
                 END
             ) AS node_link_state
