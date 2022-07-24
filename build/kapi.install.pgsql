@@ -221,7 +221,7 @@ CHECK ((LENGTH(TRIM(VALUE)) > 0) OR VALUE IS NULL)
 ;
 
  -------------------- 
- -- src/tablefunc/00.01.tgr.b4.updatedat.pgsql 
+ -- src/tablefunc/00.01.table.functions.pgsql 
  -------------------- 
 
 -- Copyright 2022 Rolando Lucio 
@@ -261,7 +261,7 @@ DECLARE
     _table_name_full varchar default _schema || '.' || _table;
 BEGIN
     EXECUTE '
-	CREATE OR REPLACE FUNCTION ' || _schema || '.' || _table || '_trg_fn_b4_update_updatedat()
+	CREATE OR REPLACE FUNCTION ' || _schema || '.' || _table_name || '_trg_fn_b4_update_updatedat()
 	RETURNS trigger 
 	AS 
 	$BODY$ 
@@ -280,8 +280,55 @@ BEGIN
 	CREATE TRIGGER trg_updatedat
 	BEFORE UPDATE 
 	ON ' || _table_name_full || '
-	FOR EACH STATEMENT
+	FOR EACH ROW
 	EXECUTE PROCEDURE ' || _schema || '.' || _table || '_trg_fn_b4_update_updatedat();
+	';
+END;
+$$;
+
+
+-- FUNCION: public.kapi_tablefunc_mvw_refresh
+-- DESCRIPTION: This Trigger Function is used to update the date of the last update of the table.
+-- USAGE: 
+-- SELECT public.kapi_tablefunc_mvw_refresh('categories.brands_nodes','categories','brands_tree');
+DROP FUNCTION IF EXISTS public.kapi_tablefunc_mvw_refresh;
+CREATE OR REPLACE FUNCTION public.kapi_tablefunc_mvw_refresh(
+    _source varchar,
+    _view_schema varchar,
+    _view varchar
+)
+RETURNS VOID
+LANGUAGE plpgsql
+VOLATILE
+COST 100
+AS
+$$
+DECLARE
+    _table_name_full varchar default _source;
+    _view_name varchar default  _view;
+    _view_name_full varchar default _view_schema || '.' || _view;
+    _func_name_full varchar default  _table_name_full || '_trg_mvw_refresh_' || _view_name || '()';
+BEGIN
+    EXECUTE '
+	CREATE OR REPLACE FUNCTION ' || _func_name_full || ' 
+	RETURNS trigger 
+	AS 
+	$t$ 
+	BEGIN
+	  REFRESH MATERIALIZED VIEW ' || _view_name_full || ';
+	  RETURN NULL;
+	END;
+	$t$ LANGUAGE plpgsql
+    ;
+	';
+		
+	EXECUTE	'
+	DROP TRIGGER IF EXISTS refresh_mvw_trg_' || _view_name || ' ON ' || _table_name_full || ';
+	CREATE TRIGGER tree_refresh_mvw_trg
+	AFTER INSERT OR UPDATE OR DELETE
+	ON ' || _table_name_full || '
+	FOR EACH STATEMENT
+	EXECUTE PROCEDURE ' || _func_name_full || ';
 	';
 END;
 $$;
@@ -327,19 +374,21 @@ DROP FUNCTION IF EXISTS public.kapi_time_epoch_to_timestamp;
 CREATE OR REPLACE FUNCTION public.kapi_time_epoch_to_timestamp(
         _epoch_milliseconds bigint 
     )
-RETURNS timestamp
+    RETURNS timestamp
+    LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS
 $$
-DECLARE
-    _timezone varchar default 'UTC';
-    _timestamp timestamp;
-    _divisor int default 1000;
-BEGIN 
-    _timestamp = (to_timestamp(TO_CHAR(TO_TIMESTAMP(_epoch_milliseconds / _divisor), 'YYYY-MM-DD HH24:MI:SS') || '.' || (_epoch_milliseconds % _divisor), 'YYYY-MM-DD HH24:MI:SS.MS')) AT TIME ZONE _timezone;
-    RETURN _timestamp::timestamp;
-END;
-$$
-LANGUAGE plpgsql;
+    DECLARE
+        _timezone varchar default 'UTC';
+        _timestamp timestamp;
+        _divisor int default 1000;
+    BEGIN 
+        _timestamp = (to_timestamp(TO_CHAR(TO_TIMESTAMP(_epoch_milliseconds / _divisor), 'YYYY-MM-DD HH24:MI:SS') || '.' || (_epoch_milliseconds % _divisor), 'YYYY-MM-DD HH24:MI:SS.MS')) AT TIME ZONE _timezone;
+        RETURN _timestamp::timestamp;
+    END;
+$$;
 
 -- @function kapi_time_timestamp_to_epoch
 -- @description Convert Timestamp Without Timezone in Milliseconds to Epoch in Milliseconds
@@ -355,7 +404,10 @@ DROP FUNCTION IF EXISTS public.kapi_time_timestamp_to_epoch;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_to_epoch(
         _timestamp timestamp 
     )
-RETURNS bigint
+    RETURNS bigint
+    LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS
 $$
 DECLARE
@@ -366,8 +418,7 @@ BEGIN
     _epoch_milliseconds = ((date_part('epoch'::text, _timestamp AT TIME ZONE _timezone) * (_divisor)::double precision))::bigint;
     RETURN _epoch_milliseconds;
 END;
-$$
-LANGUAGE plpgsql;
+$$;
 
 
 
@@ -434,23 +485,54 @@ $BODY$;
 -- limitations under the License.
 
 
+--------------------------------------------------------------
+
+-- SELECT public.kapi_time_timestamp_now();
+DROP FUNCTION IF EXISTS public.kapi_time_timestamp_now;
+CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_now()
+    RETURNS timestamp
+    LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
+AS $BODY$
+    DECLARE
+        _result timestamp;
+    BEGIN
+        _result = TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS.MS')::timestamp;
+        RETURN _result;
+    END;
+$BODY$;
+
+
 ---------------------------------------------------------------
 -- TimeStamp Functions get or format timestamp
 -- ISO 8601 format
 -- Default timestamp in milliseconds & UTC timezone
 -- MAIN FUNCTION: public.kapi_time_timestamp
+-- Refer to timezones: select * from pg_timezone_names;
+-- some examples
+-- SELECT (now()::TIMESTAMP WITH TIME ZONE at time zone 'America/mexico_city')::TIMESTAMP WITH TIME ZONE ;
+-- SELECT now()::timestamp at time zone 'UTC' at time zone 'America/mexico_city';
+-- SELECT timezone('America/mexico_city',now()::timestamptz);
 ---------------------------------------------------------------
 
 -- FUNCTION: public.kapi_time_timestamp_seconds
 -- i.e: 2022-07-05 14:45:08
+-- SELECT public.kapi_time_timestamp_seconds('2022-07-23 11:57:07.115713 America/mexico_city');
+-- SELECT public.kapi_time_timestamp_seconds('2022-07-23 11:41:23.113887+00');
+-- SELECT public.kapi_time_timestamp_seconds('Wed 17 Dec 07:37:16 1997 PST');
+-- SELECT public.kapi_time_timestamp_seconds('2004-10-19 10:23:54+02');
+-- SELECT public.kapi_time_timestamp_seconds('1999-01-08 04:05:06 -8:00');
 -- SELECT public.kapi_time_timestamp_seconds('2022-07-05 14:45:08.471898');
 -- SELECT public.kapi_time_timestamp_seconds();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_seconds;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_seconds(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
@@ -466,15 +548,17 @@ $BODY$;
 -- SELECT public.kapi_time_timestamp_milliseconds();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_milliseconds;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_milliseconds(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
 BEGIN
-    _result = TO_CHAR((_timestamp AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS.MS')::timestamp;
+    _result = TO_CHAR((_timestamp AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS.MS')::timestamp; 
     RETURN _result;
 END;
 $BODY$;
@@ -485,10 +569,12 @@ $BODY$;
 -- SELECT public.kapi_time_timestamp_naive();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_naive;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_naive(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
@@ -504,10 +590,12 @@ $BODY$;
 -- SELECT public.kapi_time_timestamp();
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp(
-    _timestamp timestamp DEFAULT CURRENT_TIMESTAMP
+    _timestamp timestamptz DEFAULT CURRENT_TIMESTAMP
     )
     RETURNS timestamp
     LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS $BODY$
 DECLARE
 	_result timestamp;
@@ -517,271 +605,12 @@ BEGIN
 END;
 $BODY$;
 
- -------------------- 
- -- src/tree/datatypes/01.02.tree.dt.pgsql 
- -------------------- 
-
--- Copyright 2022 Rolando Lucio 
-
--- Licensed under the Apache License, Version 2.0 (the "License");
--- you may not use this file except in compliance with the License.
--- You may obtain a copy of the License at
-
---     https://www.apache.org/licenses/LICENSE-2.0
-
--- Unless required by applicable law or agreed to in writing, software
--- distributed under the License is distributed on an "AS IS" BASIS,
--- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--- See the License for the specific language governing permissions and
--- limitations under the License.
-
--- Reflect the underlying type of a structure. for defaults
--- if you customize the structure, Alter/duplicate the type so you can use this to get the underlying base
--- and use the proper functions to access the fields of the structure
-
-DROP TYPE IF EXISTS public.kapi_dt_tree_tree;
-CREATE TYPE public.kapi_dt_tree_tree AS(
-    -- Node Fields
-    node_id uuid,
-    node_group_id uuid,
-    node_path kapi_dtd_ltree,
-    node_key citext,
-    node_alias citext,
-    node_path_to ltree,
-    node_name ltree,
-    node_depth bigint,
-    node_weight integer,
-    node_metadata jsonb,
-    node_data jsonb,
-    node_link_weight integer,
-    node_link_metadata jsonb,
-    node_link_data jsonb,
-    node_inserted_at bigint,
-    node_updated_at bigint,
-    -- Data Fields
-    data_id uuid,
-    data_node_id uuid,
-    data_value text,
-    data_note text,
-    data_details text,
-    data_inserted_at bigint,
-    data_updated_at bigint
-    -- View Fields
-    -- ...
-);
-
-DROP TYPE IF EXISTS public.kapi_dt_tree_node;
-CREATE TYPE public.kapi_dt_tree_node AS(
-    id uuid,
-    node_group_id uuid,
-    node_path kapi_dtd_ltree,
-    node_key citext,
-    node_alias citext,
-    node_path_to ltree,
-    node_name ltree,
-    node_depth bigint,
-    node_weight integer,
-    node_metadata jsonb,
-    node_data jsonb,
-    node_link_weight integer,
-    node_link_metadata jsonb,
-    node_link_data jsonb,
-    node_inserted_at bigint,
-    node_updated_at bigint
-);
-
-DROP TYPE IF EXISTS public.kapi_dt_tree_data;
-CREATE TYPE public.kapi_dt_tree_data AS(
-    id uuid,
-    data_node_id uuid,
-    data_value text,
-    data_note text,
-    data_details text,
-    data_inserted_at bigint,
-    data_updated_at bigint
-);
-
+---------------------------------------------------------------
+-- End OF TimeStamp FORMAT Functions
+---------------------------------------------------------------
 
  -------------------- 
- -- src/softdelete/01.softdelete.byschema.pgsql 
- -------------------- 
-
--- Copyright 2022 Rolando Lucio 
-
--- Licensed under the Apache License, Version 2.0 (the "License");
--- you may not use this file except in compliance with the License.
--- You may obtain a copy of the License at
-
---     https://www.apache.org/licenses/LICENSE-2.0
-
--- Unless required by applicable law or agreed to in writing, software
--- distributed under the License is distributed on an "AS IS" BASIS,
--- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--- See the License for the specific language governing permissions and
--- limitations under the License.
-
-CREATE TABLE categories.brands_data_deleted (
-	LIKE categories.brands_data, 
-	PRIMARY KEY (id),
-	deleted_at kapi_epoch
-);
-
-
- -------------------- 
- -- src/tree/structures/01.tree.structure.mvw.pgsql 
- -------------------- 
-
--- Copyright 2022 Rolando Lucio 
-
--- Licensed under the Apache License, Version 2.0 (the "License");
--- you may not use this file except in compliance with the License.
--- You may obtain a copy of the License at
-
---     https://www.apache.org/licenses/LICENSE-2.0
-
--- Unless required by applicable law or agreed to in writing, software
--- distributed under the License is distributed on an "AS IS" BASIS,
--- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--- See the License for the specific language governing permissions and
--- limitations under the License.
-
-/*
- * kapi_tree structures materialized view
- * Functions for basic tree visualizations
- * context: Tree Structure Materialized View
- **/
--- SELECT kapi_tree_structure_new_tree('categories.brands_nodes', 'categories','brands')
-DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_tree;
-CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_tree(
-    _source varchar,
-    _schema varchar, 
-    _table varchar
-    ) 
-RETURNS VOID
-AS
-$$
-DECLARE
-    _suffix varchar DEFAULT '_tree'
-    _table_name varchar default  _table || _suffix;
-    _table_name_full varchar default _schema || '.' || _table || _suffix;
-BEGIN
-
-    EXECUTE '
-	CREATE SCHEMA IF NOT EXISTS ' || _schema || ';
-    ';
-
-    EXECUTE '
-    CREATE MATERIALIZED VIEW IF NOT EXISTS' || _table_name_full || ' AS
-        WITH
-        tree_source AS (
-        SELECT * FROM ' || _source || ' 
-        ),
-        tree_base AS(
-            SELECT
-            this_node.id 
-            ,this_node.node_group_id
-            ,this_node.node_path
-            ,this_node.node_key
-            ,this_node.node_alias
-                   
-            ,this_node.node_weight
-            ,this_node.node_metadata
-            ,this_node.node_data
-            
-            ,parent_node.id AS node_parent_id
-            ,this_node.node_path_to
-            ,this_node.node_name
-            ,this_node.node_depth
-            ,
-            (
-                SELECT  
-                count(*)
-                FROM tree_source descendants
-                WHERE 
-                descendants.node_path <@ this_node.node_path 
-                AND descendants.node_path != this_node.node_path
-                AND descendants.group_id = this_node.group_id
-            )::bigint AS node_descendants
-            ,this_node.node_link_metadata
-            ,this_node.node_link_data
-                    
-            ,this_node.node_inserted_at
-            ,public.kapi_time_epoch_to_timestamp(this_node.node_inserted_at) AS node_inserted_at_ts
-            ,this_node.node_updated_at
-            ,public.kapi_time_epoch_to_timestamp(this_node.node_updated_at) AS node_updated_at_ts
-            
-            FROM tree_source this_node
-            LEFT JOIN tree_source parent_node 
-            ON (this_node.node_group_id = parent_node.node_group_id) 
-            AND parent_node.node_path = this_node.node_path_to
-            ORDER BY (this_node.node_group_id, this_node.node_path)
-        ),
-        tree_structure AS (
-            SELECT 
-            (
-                CASE WHEN node_depth = 1 THEN
-                    ''root''
-                ELSE
-                    CASE WHEN node_depth = 0 THEN
-                        ''leaf''
-                    ELSE
-                        ''node''
-                    END
-                END
-            ) AS node_type
-            ,
-            (
-                CASE WHEN node_depth = 1 THEN
-                    ''root''
-                ELSE
-                    CASE WHEN node_parent_id IS NULL THEN
-                        ''unlinked''
-                    ELSE
-                        ''linked''
-                    END
-                END
-            ) AS node_link_state
-            ,* 
-            FROM tree_base
-        )
-        SELECT 
-        id::uuid
-        ,node_group_id::uuid
-        ,node_path::ltree
-        ,node_key::citext
-        ,node_alias::citext
-
-        ,node_weight::integer      
-        ,node_metadata::jsonb
-        ,node_data::jsonb
-        
-        
-        ,node_parent_id::uuid
-        ,node_path_to::ltree 
-        ,node_name::ltree
-        ,node_depth::bigint
-        ,node_descendants::bigint
-        ,node_type::text
-        
-        ,node_link_state::text
-        ,node_link_metadata::jsonb
-        ,node_link_data::jsonb
-        
-        ,node_inserted_at::bigint
-        ,node_inserted_at_ts::timestamp
-        ,node_updated_at::bigint
-        ,node_updated_at_ts::timestamp
-        FROM tree_structure
-    ;
-    ';
-
-END;
-$$
-LANGUAGE plpgsql;
-
-
- -------------------- 
- -- src/tree/structures/01.tree.structure.table.pgsql 
+ -- src/tree/structures/01.01.tree.structure.table.pgsql 
  -------------------- 
 
 -- Copyright 2022 Rolando Lucio 
@@ -808,31 +637,6 @@ LANGUAGE plpgsql;
 -- @function kapi_tree_structure_new_nodes
 -- @description 
 -- Creates a new structure table
--- The table have the following structure:
--- id uuid,                     -- Unique identifier for the node uuid.uuid_generate_v4()
--- node_group_id uuid,               -- Group identifier for the node, could be used as tenant 
-                                -- or similar. to group the nodes with duplicate paths when needed.    
-
--- node_path ltree,             -- REQUIERED: The path of the node in the tree  [node_path_to].[node_name]
--- node_path_to ltree,          -- The path of the parent node in the Auto Gen cant be inserted or updated
--- node_name ltree,             -- The name of the node in the tree  Auto Gen cant be or updated
-                                -- CHECK (name ~ ''^[a-zA-Z0-9_]*$'')
--- node_depth integer,          -- The depth of the node in the tree  Auto Gen cant be or updated
-
--- node_link_metadata jsonb,    -- The metadata of the link related to the predecessor node
--- node_link_data jsonb,        -- The data of the link related to the predecessor node
--- node_metadata jsonb,         -- The metadata of the node
--- node_data jsonb,             -- The data of the node extra to the base columns
-                                -- Recomendation: extend data to external table and link OneToOne
-
--- node_key citext,             -- REQUIERED: The key of the node in the tree may be used as your own
-                                -- identifier. or replicated to the node_path as the node_name
--- node_weight integer,         -- The weight of the node, my be used to order the nodes
-
--- node_alias citext,           -- REQUIRED: The alias of the node, human readable name
-
--- node_inserted_at bigint,     -- The epoch time when the node was inserted in milliseconds
--- node_updated_at bigint       -- The epoch time when the node was updated in milliseconds
 
 
 -- Is highly recommended to use this table just for tree operations, not for data operations or biz logic
@@ -864,15 +668,17 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dtd_uuid_auto,
-        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),
+        node_id kapi_dtd_uuid_auto,
+        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (node_id),
 
         node_group_id kapi_dtd_uuid_default,
 
         -- REQUIRED ----------------------------------------- 
         -- uniques one per level per group
         -- --------------------------------------------------
-        node_path kapi_dtd_ltree,
+        -- TODO: change ltree to kapi when dls resolved
+        -- node_path kapi_dtd_ltree,
+        node_path ltree NOT NULL,
         node_key kapi_dtd_citext_notempty,
         node_alias kapi_dtd_citext_notempty,
         -- --------------------------------------------------
@@ -907,6 +713,7 @@ BEGIN
     );           
 	
 	CREATE INDEX IF NOT EXISTS _idx_path_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path);
+    CREATE INDEX IF NOT EXISTS _idx_path_to_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path_to);
 	CREATE INDEX IF NOT EXISTS _idx_group_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id);
     CREATE INDEX IF NOT EXISTS _idx_group_path_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path);
     CREATE INDEX IF NOT EXISTS _idx_node_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (node_inserted_at);
@@ -917,6 +724,10 @@ BEGIN
     CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_path_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias, node_path);
 	
 	';
+
+    EXECUTE '
+	SELECT public.kapi_tablefunc_updatedat(''' || _schema || ''', ''' || _table_name || ''' ,''node_updated_at'');
+    ';
 END;
 $$
 LANGUAGE plpgsql;
@@ -930,21 +741,6 @@ LANGUAGE plpgsql;
 -- and Alter to your needs just link the table to the nodes table
 -- 
 -- data_:: if you need Unique values per level per group add them to the nodes table
--- 
--- The table have the following structure:
--- id uuid,                     -- Unique identifier for the One to One relationship with nodes
-
--- state citext                 -- State: the particular condition that someone or something is in at a specific time.
-                                -- iex: Kanban use case, In Progress, Done, etc
--- state citext                 -- Status: the situation at a particular time during a process.
-                                -- iex: Open, Closed, In Progress, etc
--- value text,                  -- The value of the node                                
-
--- data_ text,                   -- The note of the node ( might be used to store the concept or title)
--- details text,                -- The details of the node ( might be used to store the body or extra info)
-
--- inserted_at bigint,          -- The epoch time when the node was inserted in milliseconds
--- updated_at bigint            -- The epoch time when the node was updated in milliseconds
 
 -- @TODO: Add support for One to One relationship via DEFERRABLE and Transaction commits 
 -- When our common DSL(Ecto) and ORM supports it
@@ -972,7 +768,7 @@ CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_data(
     _nodes_table varchar,
     _schema varchar, 
     _table varchar,
-    _value_declaration varchar DEFAULT 'kapi_dtd_text_notempty',
+    _value_declaration varchar DEFAULT 'kapi_dtd_citext_null_or_notempty',
     _reference_declaration varchar DEFAULT 'MATCH SIMPLE ON DELETE CASCADE ON UPDATE CASCADE'
     ) 
 RETURNS VOID
@@ -990,12 +786,12 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dtd_uuid_auto,
-        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),           
+        data_id kapi_dtd_uuid_auto,
+        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (data_id),           
 		
         data_node_id kapi_dtd_uuid,
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (data_node_id), 
-        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
+        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (node_id) ' || _reference_declaration || ',
 
         data_value ' || _value_declaration || ',
        	
@@ -1008,8 +804,391 @@ BEGIN
     CREATE INDEX IF NOT EXISTS _idx_data_value_' || _table_name || ' ON ' || _table_name_full || ' (data_value);           
     CREATE INDEX IF NOT EXISTS _idx_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (data_inserted_at);
     CREATE INDEX IF NOT EXISTS _idx_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (data_updated_at);
-	
 	';
+
+    EXECUTE '
+	SELECT public.kapi_tablefunc_updatedat(''' || _schema || ''', ''' || _table_name || ''' ,''data_updated_at'');
+    ';
+
 END;
 $$
 LANGUAGE plpgsql;
+
+
+ -------------------- 
+ -- src/tree/datatypes/01.02.tree.dt.pgsql 
+ -------------------- 
+
+-- Copyright 2022 Rolando Lucio 
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--     https://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+-- Reflect the underlying type of a structure. for defaults
+-- if you customize the structure, Alter/duplicate the type so you can use this to get the underlying base
+-- and use the proper functions to access the fields of the structure
+
+DROP TYPE IF EXISTS public.kapi_dt_tree_tree;
+CREATE TYPE public.kapi_dt_tree_tree AS(
+    -- Node Fields
+    node_id uuid
+    ,node_group_id uuid
+    ,node_path ltree
+    ,node_key citext
+    ,node_alias citext	
+    ,node_path_to ltree 
+    ,node_name ltree
+    ,node_depth bigint
+    ,node_weight integer      
+    ,node_metadata jsonb
+    ,node_data jsonb
+    ,node_link_weight integer      
+    ,node_link_metadata jsonb
+    ,node_link_data jsonb        
+    ,node_inserted_at bigint
+    ,node_updated_at bigint      
+    -- view fields    
+    ,node_inserted_at_ts timestamp
+    ,node_updated_at_ts timestamp
+    ,node_parent_id uuid     
+    ,node_descendants bigint		
+    ,node_type text      
+    ,node_link_state text
+    -- tree gen
+    ,tree_refreshed_at bigint
+    ,tree_refreshed_at_ts timestamp
+    ,tree_nodes_total bigint
+    ,tree_nodes_updated_rn bigint
+    ,tree_nodes_total_group bigint
+    ,tree_nodes_updated_rn_group  bigint 
+);
+
+DROP TYPE IF EXISTS public.kapi_dt_tree_node;
+CREATE TYPE public.kapi_dt_tree_node AS(
+    node_id uuid
+    ,node_group_id uuid
+    ,node_path ltree
+    ,node_key citext
+    ,node_alias citext	
+    ,node_path_to ltree 
+    ,node_name ltree
+    ,node_depth bigint
+    ,node_weight integer      
+    ,node_metadata jsonb
+    ,node_data jsonb
+    ,node_link_weight integer      
+    ,node_link_metadata jsonb
+    ,node_link_data jsonb        
+    ,node_inserted_at bigint
+    ,node_updated_at bigint 
+);
+
+DROP TYPE IF EXISTS public.kapi_dt_tree_data;
+CREATE TYPE public.kapi_dt_tree_data AS(
+    data_id uuid,
+    data_node_id uuid,
+    data_value text,
+    data_note text,
+    data_details text,
+    data_inserted_at bigint,
+    data_updated_at bigint
+);
+
+
+ -------------------- 
+ -- src/tree/structures/01.02.tree.structure.mvw.tree.pgsql 
+ -------------------- 
+
+-- Copyright 2022 Rolando Lucio 
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--     https://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+/*
+ * kapi_tree structures materialized view
+ * Functions for basic tree visualizations
+ * context: Tree Structure Materialized View
+ **/
+-- SELECT kapi_tree_structure_new_tree('categories.brands_nodes', 'categories','brands');
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_tree;
+CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_tree(
+    _source varchar,
+    _schema varchar, 
+    _table varchar
+    ) 
+RETURNS VOID
+AS
+$$
+DECLARE
+    _suffix varchar DEFAULT '_tree';
+    _table_name varchar default  _table || _suffix;
+    _table_name_full varchar default _schema || '.' || _table || _suffix;
+BEGIN
+
+    EXECUTE '
+	CREATE SCHEMA IF NOT EXISTS ' || _schema || ';
+    ';
+
+    EXECUTE '
+    CREATE MATERIALIZED VIEW IF NOT EXISTS ' || _table_name_full || ' AS
+        WITH
+        tree_source AS (
+           SELECT * FROM ' || _source || ' 
+        ),
+        tree_base AS(
+            SELECT
+            this_node.node_id 
+            ,this_node.node_group_id
+            ,this_node.node_path
+            ,this_node.node_key
+            ,this_node.node_alias
+
+            ,this_node.node_path_to
+            ,this_node.node_name
+            ,this_node.node_depth
+
+
+            ,this_node.node_weight
+            ,this_node.node_metadata
+            ,this_node.node_data
+            ,this_node.node_link_weight
+            ,this_node.node_link_metadata
+            ,this_node.node_link_data
+
+            ,this_node.node_inserted_at
+            ,this_node.node_updated_at
+
+            ,public.kapi_time_epoch_to_timestamp(this_node.node_inserted_at) AS node_inserted_at_ts
+            ,public.kapi_time_epoch_to_timestamp(this_node.node_updated_at) AS node_updated_at_ts
+
+            ,parent_node.node_id AS node_parent_id
+
+            ,
+            (
+                SELECT  
+                count(*)
+                FROM tree_source descendants
+                WHERE 
+                descendants.node_path <@ this_node.node_path 
+                AND descendants.node_path != this_node.node_path
+                AND descendants.node_group_id = this_node.node_group_id
+            )::bigint AS node_descendants
+
+            FROM tree_source this_node
+            LEFT JOIN tree_source parent_node 
+            ON (this_node.node_group_id = parent_node.node_group_id) 
+            AND parent_node.node_path = this_node.node_path_to
+            ORDER BY (this_node.node_group_id, this_node.node_path)
+        ),
+        tree_structure AS (
+            SELECT 
+            (
+                CASE WHEN node_depth = 1 THEN
+                    ''root''
+                ELSE
+                    CASE WHEN node_descendants = 0 THEN
+                        ''leaf''
+                    ELSE
+                        ''node''
+                    END
+                END
+            ) AS node_type
+            ,
+            (
+                CASE WHEN node_depth = 1 THEN
+                    ''root''
+                ELSE
+                    CASE WHEN node_parent_id IS NULL THEN
+                        ''unlinked''
+                    ELSE
+                        ''linked''
+                    END
+                END
+            ) AS node_link_state
+            ,*
+            ,public.kapi_time_epoch_now()::bigint AS tree_refreshed_at
+            FROM tree_base
+        ),
+        tree_datatype AS(
+            SELECT 
+            -- node fields
+            node_id::uuid
+            ,node_group_id::uuid
+            ,node_path::ltree
+            ,node_key::citext
+            ,node_alias::citext	
+            ,node_path_to::ltree 
+            ,node_name::ltree
+            ,node_depth::bigint
+            ,node_weight::integer      
+            ,node_metadata::jsonb
+            ,node_data::jsonb
+            ,node_link_weight::integer      
+            ,node_link_metadata::jsonb
+            ,node_link_data::jsonb        
+            ,node_inserted_at::bigint
+            ,node_updated_at::bigint      
+            -- view fields    
+            ,node_inserted_at_ts::timestamp
+            ,node_updated_at_ts::timestamp
+            ,node_parent_id::uuid     
+            ,node_descendants::bigint		
+            ,node_type::text      
+            ,node_link_state::text
+            -- tree gen
+            ,tree_refreshed_at::bigint
+            ,public.kapi_time_epoch_to_timestamp(tree_refreshed_at)::timestamp AS tree_refreshed_at_ts
+            FROM tree_structure
+        ),
+        tree_counts AS (
+            SELECT 
+            -- node fields
+            node_id::uuid
+            ,node_group_id::uuid
+            ,node_path::ltree
+            ,node_key::citext
+            ,node_alias::citext	
+            ,node_path_to::ltree 
+            ,node_name::ltree
+            ,node_depth::bigint
+            ,node_weight::integer      
+            ,node_metadata::jsonb
+            ,node_data::jsonb
+            ,node_link_weight::integer      
+            ,node_link_metadata::jsonb
+            ,node_link_data::jsonb        
+            ,node_inserted_at::bigint
+            ,node_updated_at::bigint      
+            -- view fields    
+            ,node_inserted_at_ts::timestamp
+            ,node_updated_at_ts::timestamp
+            ,node_parent_id::uuid     
+            ,node_descendants::bigint		
+            ,node_type::text      
+            ,node_link_state::text
+            -- tree gen
+            ,tree_refreshed_at::bigint
+            ,tree_refreshed_at_ts::timestamp
+            ,(count(*) OVER ())::bigint AS tree_nodes_total
+            ,(row_number() OVER (ORDER BY node_updated_at DESC))::bigint AS tree_nodes_updated_rn
+            ,(count(*) OVER (PARTITION BY node_group_id))::bigint AS tree_nodes_total_group
+            ,(row_number() OVER (PARTITION BY node_group_id ORDER BY node_updated_at DESC))::bigint AS tree_nodes_updated_rn_group
+            FROM tree_datatype
+        )
+        SELECT 
+            node_id::uuid
+            ,node_group_id::uuid
+            ,node_path::ltree
+            ,node_key::citext
+            ,node_alias::citext	
+            ,node_path_to::ltree 
+            ,node_name::ltree
+            ,node_depth::bigint
+            ,node_weight::integer      
+            ,node_metadata::jsonb
+            ,node_data::jsonb
+            ,node_link_weight::integer      
+            ,node_link_metadata::jsonb
+            ,node_link_data::jsonb        
+            ,node_inserted_at::bigint
+            ,node_updated_at::bigint      
+            -- view fields    
+            ,node_inserted_at_ts::timestamp
+            ,node_updated_at_ts::timestamp
+            ,node_parent_id::uuid     
+            ,node_descendants::bigint		
+            ,node_type::text      
+            ,node_link_state::text
+            -- tree gen
+            ,tree_refreshed_at::bigint
+            ,tree_refreshed_at_ts::timestamp
+            ,tree_nodes_total::bigint
+            ,tree_nodes_updated_rn::bigint
+            ,tree_nodes_total_group::bigint
+            ,tree_nodes_updated_rn_group ::bigint 
+        FROM tree_counts
+        ORDER BY node_group_id, node_path ASC
+        ;
+    ';
+
+    -- Replicate Node Indices
+    -- + aditional
+    EXECUTE '
+    -- uk idx as pk for node_id
+    CREATE UNIQUE INDEX IF NOT EXISTS _pk_' || _table_name || ' ON ' || _table_name_full || ' (node_id);
+
+    -- UK index for other Unique Keys
+    CREATE UNIQUE INDEX IF NOT EXISTS _uk_group_node_path_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path);
+    CREATE UNIQUE INDEX IF NOT EXISTS _uk_group_parent_node_alias_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path_to, node_alias);
+    CREATE UNIQUE INDEX IF NOT EXISTS _uk_group_parent_key_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path_to, node_key);
+
+    -- Same as node table
+    CREATE INDEX IF NOT EXISTS _idx_path_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path);
+    CREATE INDEX IF NOT EXISTS _idx_path_to_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path_to);
+	CREATE INDEX IF NOT EXISTS _idx_group_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id);
+    CREATE INDEX IF NOT EXISTS _idx_group_path_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path);
+    CREATE INDEX IF NOT EXISTS _idx_node_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (node_inserted_at);
+    CREATE INDEX IF NOT EXISTS _idx_node_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (node_updated_at);
+    CREATE INDEX IF NOT EXISTS _idx_group_node_key_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_key);
+    CREATE INDEX IF NOT EXISTS _idx_group_node_alias_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_alias);
+    CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias);
+    CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_path_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias, node_path);
+
+    -- View indexes
+    CREATE INDEX IF NOT EXISTS _idx_node_updated_at_ts_' || _table_name || ' ON ' || _table_name_full || ' (node_updated_at_ts);
+	CREATE INDEX IF NOT EXISTS _idx_parent_id_' || _table_name || ' ON ' || _table_name_full || ' (node_parent_id);
+    CREATE INDEX IF NOT EXISTS _idx_updated_rn_group_' || _table_name || ' ON ' || _table_name_full || ' (tree_nodes_updated_rn_group);
+
+    ';
+
+    -- Add refresg trigger and trigger function
+    EXECUTE '
+	SELECT public.kapi_tablefunc_mvw_refresh(''' || _source || ''',''' || _schema || ''', ''' || _table_name || ''');
+    ';
+
+END;
+$$
+LANGUAGE plpgsql;
+
+
+ -------------------- 
+ -- src/softdelete/01.softdelete.byschema.pgsql 
+ -------------------- 
+
+-- Copyright 2022 Rolando Lucio 
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--     https://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+CREATE TABLE categories.brands_data_deleted (
+	LIKE categories.brands_data, 
+	PRIMARY KEY (id),
+	deleted_at kapi_epoch
+);

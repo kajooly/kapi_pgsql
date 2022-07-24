@@ -35,7 +35,7 @@ DECLARE
     _table_name_full varchar default _schema || '.' || _table;
 BEGIN
     EXECUTE '
-	CREATE OR REPLACE FUNCTION ' || _schema || '.' || _table || '_trg_fn_b4_update_updatedat()
+	CREATE OR REPLACE FUNCTION ' || _schema || '.' || _table_name || '_trg_fn_b4_update_updatedat()
 	RETURNS trigger 
 	AS 
 	$BODY$ 
@@ -56,6 +56,53 @@ BEGIN
 	ON ' || _table_name_full || '
 	FOR EACH ROW
 	EXECUTE PROCEDURE ' || _schema || '.' || _table || '_trg_fn_b4_update_updatedat();
+	';
+END;
+$$;
+
+
+-- FUNCION: public.kapi_tablefunc_mvw_refresh
+-- DESCRIPTION: This Trigger Function is used to refresh the materialized view.
+-- USAGE: 
+-- SELECT public.kapi_tablefunc_mvw_refresh('categories.brands_nodes','categories','brands_tree');
+DROP FUNCTION IF EXISTS public.kapi_tablefunc_mvw_refresh;
+CREATE OR REPLACE FUNCTION public.kapi_tablefunc_mvw_refresh(
+    _source varchar,
+    _view_schema varchar,
+    _view varchar
+)
+RETURNS VOID
+LANGUAGE plpgsql
+VOLATILE
+COST 100
+AS
+$$
+DECLARE
+    _table_name_full varchar default _source;
+    _view_name varchar default  _view;
+    _view_name_full varchar default _view_schema || '.' || _view;
+    _func_name_full varchar default  _table_name_full || '_trg_mvw_refresh_' || _view_name || '()';
+BEGIN
+    EXECUTE '
+	CREATE OR REPLACE FUNCTION ' || _func_name_full || ' 
+	RETURNS trigger 
+	AS 
+	$t$ 
+	BEGIN
+	  REFRESH MATERIALIZED VIEW ' || _view_name_full || ';
+	  RETURN NULL;
+	END;
+	$t$ LANGUAGE plpgsql
+    ;
+	';
+		
+	EXECUTE	'
+	DROP TRIGGER IF EXISTS refresh_mvw_trg_' || _view_name || ' ON ' || _table_name_full || ';
+	CREATE TRIGGER tree_refresh_mvw_trg
+	AFTER INSERT OR UPDATE OR DELETE
+	ON ' || _table_name_full || '
+	FOR EACH STATEMENT
+	EXECUTE PROCEDURE ' || _func_name_full || ';
 	';
 END;
 $$;

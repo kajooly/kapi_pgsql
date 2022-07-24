@@ -3,7 +3,7 @@
 
 
  -------------------- 
- -- src/tree/structures/01.tree.structure.table.rollback.pgsql 
+ -- src/tree/structures/01.02.tree.structure.mvw.tree.rollback.pgsql 
  -------------------- 
 
 -- Copyright 2022 Rolando Lucio 
@@ -22,8 +22,7 @@
 
 -- Used to rollback in migrations
 
-DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_data;
-DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_nodes;
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_tree;
 
  -------------------- 
  -- src/tree/datatypes/01.02.tree.dt.rollback.pgsql 
@@ -48,6 +47,29 @@ DROP TYPE IF EXISTS public.kapi_dt_tree_tree;
 DROP TYPE IF EXISTS public.kapi_dt_tree_node;
 DROP TYPE IF EXISTS public.kapi_dt_tree_data;
 
+
+ -------------------- 
+ -- src/tree/structures/01.01.tree.structure.table.rollback.pgsql 
+ -------------------- 
+
+-- Copyright 2022 Rolando Lucio 
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--     https://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+-- Used to rollback in migrations
+
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_data;
+DROP FUNCTION IF EXISTS public.kapi_tree_structure_new_nodes;
 
  -------------------- 
  -- src/time/00.01.time.timestamp.rollback.pgsql 
@@ -116,6 +138,27 @@ DROP FUNCTION IF EXISTS public.kapi_time_epoch_now;
 DROP FUNCTION IF EXISTS public.kapi_time_epoch_to_timestamp;
 DROP FUNCTION IF EXISTS public.kapi_time_timestamp_to_epoch;
 
+
+ -------------------- 
+ -- src/tablefunc/00.01.table.functions.rollback.pgsql 
+ -------------------- 
+
+-- Copyright 2022 Rolando Lucio 
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--     https://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+
+DROP FUNCTION IF EXISTS public.kapi_tablefunc_updatedat;
+DROP FUNCTION IF EXISTS public.kapi_tablefunc_mvw_refresh;
 
  -------------------- 
  -- src/datatypes/00.01.dtd.domains.base.rollback.pgsql 

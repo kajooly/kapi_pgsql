@@ -249,6 +249,11 @@ BEGIN
 
     ';
 
+    -- Add refresg trigger and trigger function
+    EXECUTE '
+	SELECT public.kapi_tablefunc_mvw_refresh(''' || _source || ''',''' || _schema || ''', ''' || _table_name || ''');
+    ';
+
 END;
 $$
 LANGUAGE plpgsql;
