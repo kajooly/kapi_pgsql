@@ -33,19 +33,21 @@ DROP FUNCTION IF EXISTS public.kapi_time_epoch_to_timestamp;
 CREATE OR REPLACE FUNCTION public.kapi_time_epoch_to_timestamp(
         _epoch_milliseconds bigint 
     )
-RETURNS timestamp
+    RETURNS timestamp
+    LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS
 $$
-DECLARE
-    _timezone varchar default 'UTC';
-    _timestamp timestamp;
-    _divisor int default 1000;
-BEGIN 
-    _timestamp = (to_timestamp(TO_CHAR(TO_TIMESTAMP(_epoch_milliseconds / _divisor), 'YYYY-MM-DD HH24:MI:SS') || '.' || (_epoch_milliseconds % _divisor), 'YYYY-MM-DD HH24:MI:SS.MS')) AT TIME ZONE _timezone;
-    RETURN _timestamp::timestamp;
-END;
-$$
-LANGUAGE plpgsql;
+    DECLARE
+        _timezone varchar default 'UTC';
+        _timestamp timestamp;
+        _divisor int default 1000;
+    BEGIN 
+        _timestamp = (to_timestamp(TO_CHAR(TO_TIMESTAMP(_epoch_milliseconds / _divisor), 'YYYY-MM-DD HH24:MI:SS') || '.' || (_epoch_milliseconds % _divisor), 'YYYY-MM-DD HH24:MI:SS.MS')) AT TIME ZONE _timezone;
+        RETURN _timestamp::timestamp;
+    END;
+$$;
 
 -- @function kapi_time_timestamp_to_epoch
 -- @description Convert Timestamp Without Timezone in Milliseconds to Epoch in Milliseconds
@@ -61,7 +63,10 @@ DROP FUNCTION IF EXISTS public.kapi_time_timestamp_to_epoch;
 CREATE OR REPLACE FUNCTION public.kapi_time_timestamp_to_epoch(
         _timestamp timestamp 
     )
-RETURNS bigint
+    RETURNS bigint
+    LANGUAGE plpgsql
+    STABLE PARALLEL SAFE
+    COST 1
 AS
 $$
 DECLARE
@@ -72,6 +77,5 @@ BEGIN
     _epoch_milliseconds = ((date_part('epoch'::text, _timestamp AT TIME ZONE _timezone) * (_divisor)::double precision))::bigint;
     RETURN _epoch_milliseconds;
 END;
-$$
-LANGUAGE plpgsql;
+$$;
 

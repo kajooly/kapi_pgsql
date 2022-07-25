@@ -12,17 +12,4 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-DROP FUNCTION IF EXISTS kapi_tree_setup_rollback;
-DROP FUNCTION IF EXISTS kapi_tree_setup;
-DROP FUNCTION IF EXISTS kapi_tree_mvw_delete;
-DROP FUNCTION IF EXISTS kapi_tree_mvw_new;
-DROP FUNCTION IF EXISTS kapi_tree_struct_delete;
-DROP FUNCTION IF EXISTS kapi_tree_struct_new;
-DROP FUNCTION IF EXISTS kapi_tree_get;
-DROP TYPE IF EXISTS kapi_tree_table;
-DROP DOMAIN IF EXISTS kapi_json;
-DROP DOMAIN IF EXISTS kapi_ltree;
-DROP DOMAIN IF EXISTS kapi_uuid;
-DROP DOMAIN IF EXISTS kapi_uuid_auto;
-DROP DOMAIN IF EXISTS kapi_timestamp;
-DROP TYPE IF EXISTS kapi_tree;
+DROP FUNCTION IF EXISTS public.kapi_time_epoch_now;

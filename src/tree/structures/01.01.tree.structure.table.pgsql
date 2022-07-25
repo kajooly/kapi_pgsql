@@ -22,31 +22,6 @@
 -- @function kapi_tree_structure_new_nodes
 -- @description 
 -- Creates a new structure table
--- The table have the following structure:
--- id uuid,                     -- Unique identifier for the node uuid.uuid_generate_v4()
--- node_group_id uuid,               -- Group identifier for the node, could be used as tenant 
-                                -- or similar. to group the nodes with duplicate paths when needed.    
-
--- node_path ltree,             -- REQUIERED: The path of the node in the tree  [node_path_to].[node_name]
--- node_path_to ltree,          -- The path of the parent node in the Auto Gen cant be inserted or updated
--- node_name ltree,             -- The name of the node in the tree  Auto Gen cant be or updated
-                                -- CHECK (name ~ ''^[a-zA-Z0-9_]*$'')
--- node_depth integer,          -- The depth of the node in the tree  Auto Gen cant be or updated
-
--- node_link_metadata jsonb,    -- The metadata of the link related to the predecessor node
--- node_link_data jsonb,        -- The data of the link related to the predecessor node
--- node_metadata jsonb,         -- The metadata of the node
--- node_data jsonb,             -- The data of the node extra to the base columns
-                                -- Recomendation: extend data to external table and link OneToOne
-
--- node_key citext,             -- REQUIERED: The key of the node in the tree may be used as your own
-                                -- identifier. or replicated to the node_path as the node_name
--- node_weight integer,         -- The weight of the node, my be used to order the nodes
-
--- node_alias citext,           -- REQUIRED: The alias of the node, human readable name
-
--- node_inserted_at bigint,     -- The epoch time when the node was inserted in milliseconds
--- node_updated_at bigint       -- The epoch time when the node was updated in milliseconds
 
 
 -- Is highly recommended to use this table just for tree operations, not for data operations or biz logic
@@ -78,15 +53,17 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dtd_uuid_auto,
-        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),
+        node_id kapi_dtd_uuid_auto,
+        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (node_id),
 
         node_group_id kapi_dtd_uuid_default,
 
         -- REQUIRED ----------------------------------------- 
         -- uniques one per level per group
         -- --------------------------------------------------
-        node_path kapi_dtd_ltree,
+        -- TODO: change ltree to kapi when dls resolved
+        -- node_path kapi_dtd_ltree,
+        node_path ltree NOT NULL,
         node_key kapi_dtd_citext_notempty,
         node_alias kapi_dtd_citext_notempty,
         -- --------------------------------------------------
@@ -121,6 +98,7 @@ BEGIN
     );           
 	
 	CREATE INDEX IF NOT EXISTS _idx_path_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path);
+    CREATE INDEX IF NOT EXISTS _idx_path_to_' || _table_name || '  ON ' || _table_name_full || ' USING gist (node_path_to);
 	CREATE INDEX IF NOT EXISTS _idx_group_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id);
     CREATE INDEX IF NOT EXISTS _idx_group_path_' || _table_name || ' ON ' || _table_name_full || ' (node_group_id, node_path);
     CREATE INDEX IF NOT EXISTS _idx_node_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (node_inserted_at);
@@ -131,6 +109,10 @@ BEGIN
     CREATE INDEX IF NOT EXISTS _idx_node_key_node_alias_path_fst_' || _table_name || ' ON ' || _table_name_full || ' USING gist (node_key, node_alias, node_path);
 	
 	';
+
+    EXECUTE '
+	SELECT public.kapi_tablefunc_updatedat(''' || _schema || ''', ''' || _table_name || ''' ,''node_updated_at'');
+    ';
 END;
 $$
 LANGUAGE plpgsql;
@@ -144,21 +126,6 @@ LANGUAGE plpgsql;
 -- and Alter to your needs just link the table to the nodes table
 -- 
 -- data_:: if you need Unique values per level per group add them to the nodes table
--- 
--- The table have the following structure:
--- id uuid,                     -- Unique identifier for the One to One relationship with nodes
-
--- state citext                 -- State: the particular condition that someone or something is in at a specific time.
-                                -- iex: Kanban use case, In Progress, Done, etc
--- state citext                 -- Status: the situation at a particular time during a process.
-                                -- iex: Open, Closed, In Progress, etc
--- value text,                  -- The value of the node                                
-
--- data_ text,                   -- The note of the node ( might be used to store the concept or title)
--- details text,                -- The details of the node ( might be used to store the body or extra info)
-
--- inserted_at bigint,          -- The epoch time when the node was inserted in milliseconds
--- updated_at bigint            -- The epoch time when the node was updated in milliseconds
 
 -- @TODO: Add support for One to One relationship via DEFERRABLE and Transaction commits 
 -- When our common DSL(Ecto) and ORM supports it
@@ -186,7 +153,7 @@ CREATE OR REPLACE FUNCTION public.kapi_tree_structure_new_data(
     _nodes_table varchar,
     _schema varchar, 
     _table varchar,
-    _value_declaration varchar DEFAULT 'kapi_dtd_text_notempty',
+    _value_declaration varchar DEFAULT 'kapi_dtd_citext_null_or_notempty',
     _reference_declaration varchar DEFAULT 'MATCH SIMPLE ON DELETE CASCADE ON UPDATE CASCADE'
     ) 
 RETURNS VOID
@@ -204,12 +171,12 @@ BEGIN
 	
 	EXECUTE '
 	CREATE TABLE IF NOT EXISTS ' || _table_name_full || '(
-        id kapi_dtd_uuid_auto,
-        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (id),           
+        data_id kapi_dtd_uuid_auto,
+        CONSTRAINT _pk_' || _table_name || ' PRIMARY KEY (data_id),           
 		
         data_node_id kapi_dtd_uuid,
         CONSTRAINT _uk_one_to_one_' || _table_name || ' UNIQUE (data_node_id), 
-        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (id) ' || _reference_declaration || ',
+        CONSTRAINT _fk_one_to_one_' || _table_name || ' FOREIGN KEY (data_node_id) REFERENCES ' || _nodes_table || ' (node_id) ' || _reference_declaration || ',
 
         data_value ' || _value_declaration || ',
        	
@@ -222,8 +189,12 @@ BEGIN
     CREATE INDEX IF NOT EXISTS _idx_data_value_' || _table_name || ' ON ' || _table_name_full || ' (data_value);           
     CREATE INDEX IF NOT EXISTS _idx_inserted_at_' || _table_name || ' ON ' || _table_name_full || ' (data_inserted_at);
     CREATE INDEX IF NOT EXISTS _idx_updated_at_' || _table_name || ' ON ' || _table_name_full || ' (data_updated_at);
-	
 	';
+
+    EXECUTE '
+	SELECT public.kapi_tablefunc_updatedat(''' || _schema || ''', ''' || _table_name || ''' ,''data_updated_at'');
+    ';
+
 END;
 $$
 LANGUAGE plpgsql;
