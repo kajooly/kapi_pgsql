@@ -98,7 +98,7 @@ BEGIN
 		
 	EXECUTE	'
 	DROP TRIGGER IF EXISTS refresh_mvw_trg_' || _view_name || ' ON ' || _table_name_full || ';
-	CREATE TRIGGER tree_refresh_mvw_trg
+	CREATE TRIGGER ' || _view_name || '_refresh_mvw_trg
 	AFTER INSERT OR UPDATE OR DELETE
 	ON ' || _table_name_full || '
 	FOR EACH STATEMENT

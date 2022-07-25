@@ -288,7 +288,7 @@ $$;
 
 
 -- FUNCION: public.kapi_tablefunc_mvw_refresh
--- DESCRIPTION: This Trigger Function is used to update the date of the last update of the table.
+-- DESCRIPTION: This Trigger Function is used to refresh the materialized view.
 -- USAGE: 
 -- SELECT public.kapi_tablefunc_mvw_refresh('categories.brands_nodes','categories','brands_tree');
 DROP FUNCTION IF EXISTS public.kapi_tablefunc_mvw_refresh;
@@ -324,7 +324,7 @@ BEGIN
 		
 	EXECUTE	'
 	DROP TRIGGER IF EXISTS refresh_mvw_trg_' || _view_name || ' ON ' || _table_name_full || ';
-	CREATE TRIGGER tree_refresh_mvw_trg
+	CREATE TRIGGER ' || _view_name || '_refresh_mvw_trg
 	AFTER INSERT OR UPDATE OR DELETE
 	ON ' || _table_name_full || '
 	FOR EACH STATEMENT
@@ -1187,8 +1187,10 @@ LANGUAGE plpgsql;
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+/*
 CREATE TABLE categories.brands_data_deleted (
 	LIKE categories.brands_data, 
 	PRIMARY KEY (id),
 	deleted_at kapi_epoch
 );
+*/

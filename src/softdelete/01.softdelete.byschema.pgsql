@@ -12,8 +12,10 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+/*
 CREATE TABLE categories.brands_data_deleted (
 	LIKE categories.brands_data, 
 	PRIMARY KEY (id),
 	deleted_at kapi_epoch
 );
+*/
